@@ -2,21 +2,6 @@
 
 이 문서는 팀이 『밑바닥부터 만들면서 배우는 LLM』을 읽으면서 `gpt-lab` 과제를 단계별로 구현하기 위한 가이드입니다. 교재의 장/절 소제목과 짧은 연결 설명만 정리하며, 긴 발췌나 페이지 재현은 넣지 않습니다.
 
-팀의 실제 구현 기준은 **NumPy-only**입니다. 교재와 현재 저장소 템플릿에는 PyTorch 표현이 남아 있을 수 있지만, 이 문서는 그 내용을 NumPy 배열 연산과 직접 구현 관점으로 바꿔 읽기 위한 안내서입니다.
-
-## NumPy-only 읽는 법
-
-| 교재/현재 템플릿 표현 | 이 과제에서 읽는 방식 |
-| --- | --- |
-| `torch.Tensor` | `np.ndarray`와 dtype/shape 관리 |
-| `nn.Module` | 직접 만든 class 또는 함수와 parameter 배열 관리 |
-| `DataLoader` | NumPy batch iterator 또는 batch loader |
-| `torch.no_grad()`, `model.eval()` | 평가/추론 모드 플래그, dropout 비활성화, gradient 저장 생략 |
-| `torch.long` | token ID와 label을 담는 `np.int64` 정수 배열 |
-| `torch.save/load` | `np.savez`, JSON, pickle 등을 이용한 모델/학습 상태 저장과 복원 |
-
-> 현재 저장소의 테스트와 템플릿은 아직 PyTorch 기반으로 보일 수 있습니다. 아래 `pytest` 명령은 **현재 템플릿 확인용**이며, NumPy-only 규칙으로 테스트를 재작성하거나 교체하기 전까지는 팀 규칙과 불일치할 수 있습니다.
-
 ## 사용 방법
 
 1. 각 Step의 **교재 범위**를 먼저 읽습니다.
@@ -117,13 +102,13 @@ pytest tests/test_bpe.py -v
 - 다음 토큰 예측에서 input과 target이 한 칸 shift되는 이유를 설명할 수 있다.
 - `context_length`와 `stride`가 학습 샘플 수에 어떤 영향을 주는지 이해한다.
 - token embedding과 position embedding을 더하는 이유를 설명할 수 있다.
-- NumPy embedding 출력 shape `(batch, seq_len, emb_dim)`을 읽을 수 있다.
+- embedding 출력 shape `(batch, seq_len, emb_dim)`을 읽을 수 있다.
 
 ### 구현 목표
 
 - token ID 리스트를 `context_length` 길이의 input/target 쌍으로 자른다.
 - `stride` 간격으로 sliding window 샘플을 만든다.
-- `GPTDataset` 결과를 batch iterator 또는 batch loader로 묶는다.
+- `GPTDataset`을 `DataLoader`로 감싼다.
 - token embedding, position embedding, dropout을 적용하는 `InputEmbedding`을 만든다.
 
 ### 관련 파일
@@ -150,7 +135,7 @@ pytest tests/test_dataset.py -v
 ### 완료 기준
 
 - `tests/test_dataset.py` 전체가 통과한다.
-- target 배열이 input 배열보다 한 token 앞선 값을 가진다.
+- target tensor가 input tensor보다 한 token 앞선 값을 가진다.
 - embedding 출력 shape가 `(batch_size, seq_len, emb_dim)`이다.
 
 ### 팀 토론 질문
@@ -163,8 +148,7 @@ pytest tests/test_dataset.py -v
 ### 주의점
 
 - 샘플 개수 계산에서 마지막 target token 1개를 고려해야 한다.
-- batch는 `np.ndarray`로 묶고 token ID dtype은 정수형으로 유지한다.
-- position ID는 입력 배열과 같은 batch/sequence 길이 규칙을 따라야 한다.
+- position ID는 입력 tensor와 같은 device에 있어야 GPU 학습에서 문제가 없다.
 - `shuffle=False` 테스트에서는 배치 순서가 예측 가능해야 한다.
 
 ## Step 3. Causal Multi-Head Attention
@@ -223,7 +207,6 @@ pytest tests/test_attention.py -v
 ### 주의점
 
 - mask shape는 batch와 head 차원에 broadcast될 수 있어야 한다.
-- mask, stable softmax, `np.matmul` broadcasting을 작은 배열로 먼저 검산한다.
 - dropout은 attention weight에 적용하는 것이 일반적이다.
 - 테스트는 `return_attention_weights=True` 동작까지 확인한다.
 
@@ -295,7 +278,6 @@ pytest tests/test_model.py -v
 
 - 교재의 `GPTModel.forward()`는 주로 logits 반환을 설명하지만, 과제는 target이 있을 때 loss 반환까지 요구한다.
 - cross entropy 계산은 logits와 targets를 flatten해서 token 단위 예측으로 계산해야 한다.
-- LayerNorm, GELU, cross entropy는 NumPy 수식으로 직접 구현하고 작은 입력으로 검산한다.
 - generation에서는 현재 문맥이 `context_size`보다 길면 마지막 token들만 사용해야 한다.
 
 ## Step 5. Pretraining Utilities
@@ -305,19 +287,19 @@ pytest tests/test_model.py -v
 - 5.1 텍스트 생성 모델 평가하기
 - 5.2 LLM 훈련하기
 - 5.3 무작위성을 제어하기 위한 디코딩 전략
-- 5.4 모델 상태 저장과 로드
+- 5.4 파이토치로 모델 로드하고 저장하기
 
 ### 공부 목표
 
 - 다음 토큰 예측 loss가 cross entropy로 계산되는 흐름을 설명할 수 있다.
 - train loss와 validation loss를 나누어 보는 이유를 이해한다.
 - temperature와 top-k sampling이 generation 결과에 주는 영향을 설명할 수 있다.
-- 모델 파라미터 배열과 학습 상태를 함께 저장해야 하는 이유를 이해한다.
+- model state와 optimizer state를 함께 저장해야 하는 이유를 이해한다.
 
 ### 구현 목표
 
 - 한 batch와 loader 전체의 평균 loss를 계산한다.
-- checkpoint에 모델 파라미터, 학습 상태, epoch, global step을 저장하고 복원한다.
+- checkpoint에 model, optimizer, epoch, global step을 저장하고 복원한다.
 - temperature와 top-k를 지원하는 `generate()`를 구현한다.
 - 사전 학습 loop에서 학습, 평가, 샘플 생성을 수행한다.
 
@@ -353,15 +335,14 @@ pytest tests/test_train.py -v
 ### 팀 토론 질문
 
 - logits shape와 target shape를 cross entropy에 맞추려면 왜 flatten이 필요할까?
-- validation에서는 왜 평가 모드와 dropout 비활성화가 필요할까?
+- validation에서는 왜 `torch.no_grad()`와 `model.eval()`이 필요할까?
 - temperature가 0 또는 낮은 값일 때 generation은 어떻게 달라질까?
 - top-k를 적용하면 왜 낮은 확률 token이 제거될까?
 
 ### 주의점
 
 - `calc_loss_loader()`는 비어 있는 loader를 만났을 때 안전하게 처리해야 한다.
-- checkpoint는 학습 상태 없이도 모델 파라미터만 load할 수 있어야 한다.
-- stable softmax, top-k filtering, categorical sampling을 NumPy로 직접 구현한다.
+- checkpoint는 optimizer 없이도 load할 수 있어야 한다.
 - `eos_id`가 생성되면 생성을 중단하는 동작을 고려해야 한다.
 - 학습 loop는 테스트보다 실제 노트북 실행에서 더 중요하게 검증된다.
 
@@ -413,7 +394,7 @@ pytest tests/test_finetune.py -v
 ### 완료 기준
 
 - `tests/test_finetune.py` 전체가 통과한다.
-- dataset item은 `(max_length,)` shape의 `np.int64` token 배열과 label을 반환한다.
+- dataset item은 `(max_length,)` shape의 LongTensor와 label을 반환한다.
 - classifier logits shape는 `(batch_size, num_labels)`이다.
 
 ### 팀 토론 질문
@@ -428,7 +409,7 @@ pytest tests/test_finetune.py -v
 - 교재는 스팸/스팸 아님 분류를 다루지만 과제는 긍정/부정 감성 분류를 다룬다.
 - 테스트는 실제 BPE 학습 없이 dummy tokenizer로 dataset 동작도 확인한다.
 - `GPTModel`이 hidden state를 직접 반환하지 않는다면 classifier 구현에서 backbone 내부 모듈을 재사용하는 방식이 필요하다.
-- classifier 입력, logits, label shape를 NumPy 기준으로 맞추고 label dtype은 `np.int64`로 둔다.
+- label dtype은 cross entropy에 맞게 `torch.long`이어야 한다.
 
 ## 단계별 실행 명령 모음
 
