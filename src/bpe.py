@@ -19,7 +19,6 @@ SPECIAL_TOKENS = [PAD_TOKEN, UNK_TOKEN, BOS_TOKEN, EOS_TOKEN]
 SPECIAL_IDS = {token: idx for idx, token in enumerate(SPECIAL_TOKENS)}
 BYTE_OFFSET = len(SPECIAL_TOKENS)
 NUM_BYTES = 256
-print(SPECIAL_IDS)
 
 class BPETokenizer:
     """
@@ -43,11 +42,18 @@ class BPETokenizer:
         1. 특수 토큰 4개를 고정 ID 0~3에 등록합니다.
         2. byte 0~255를 ID 4~259에 bytes([byte_value]) 형태로 등록합니다.
         """
-        self.id_to_token = {value: key for key, value in SPECIAL_IDS.items()}
-        self.token_to_id = SPECIAL_IDS
-        for i in range (BYTE_OFFSET, NUM_BYTES + BYTE_OFFSET):
-            self.id_to_token = {i: bytes(i-BYTE_OFFSET)}
-            self.token_to_id = {bytes(i-BYTE_OFFSET): i}
+        self.id_to_token = {}
+        self.token_to_id = {}
+
+        for token, idx in SPECIAL_IDS.items():
+            self.id_to_token[idx] = token
+            self.token_to_id[token] = idx
+
+        for byte_value in range(NUM_BYTES):
+            token_id = BYTE_OFFSET + byte_value
+            token = bytes([byte_value])
+            self.id_to_token[token_id] = token
+            self.token_to_id[token] = token_id
 
 
     def get_pad_id(self):
@@ -77,11 +83,11 @@ class BPETokenizer:
         - `self.merges`, `self.id_to_token`, `self.token_to_id`를 갱신합니다.
         """
         self._init_special_tokens()
-        byte_id_seq = corpus.encode("utf-8")
-        byte_id_seq = [i + BYTE_OFFSET for i in byte_id_seq]
+        self.merges = []
+        byte_id_seq = [i + BYTE_OFFSET for i in corpus.encode("utf-8")]
 
-        while len(self.token_to_id) < self.vocab_size:
-            if len(byte_id_seq) <= 3:
+        while len(self.id_to_token) < self.vocab_size:
+            if len(byte_id_seq) < 2:
                 break
 
             pair_counts = {}
@@ -89,9 +95,11 @@ class BPETokenizer:
                 pair = (a, b)
                 pair_counts[pair] = pair_counts.get(pair, 0) + 1
 
-            best_pair = max(pair_counts, key=pair_counts.get)
+            if not pair_counts:
+                break
 
-            if pair_counts[best_pair] == 1:
+            best_pair = max(pair_counts, key=pair_counts.get)
+            if best_pair in self.token_to_id:
                 break
 
             new_id = len(self.id_to_token)
@@ -101,7 +109,7 @@ class BPETokenizer:
             i = 0
             new_seq = []
             while i < len(byte_id_seq):
-                if (byte_id_seq[i], byte_id_seq[i+1]) == best_pair:
+                if i < len(byte_id_seq) - 1 and (byte_id_seq[i], byte_id_seq[i+1]) == best_pair:
                     new_seq.append(new_id)
                     i += 2
                 else:
@@ -111,10 +119,6 @@ class BPETokenizer:
             byte_id_seq = new_seq
 
             self.merges.append(best_pair)
-            
-            
-
-        raise NotImplementedError("BPETokenizer.train을 구현하세요.")
 
     def save(self, path: str | Path):
         """
