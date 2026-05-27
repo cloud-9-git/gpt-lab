@@ -117,7 +117,11 @@ class BPETokenizer:
         - merge token은 원본 byte token까지 재귀적으로 펼칩니다.
         - byte를 하나씩 decode하지 말고, 마지막에 `bytes(...).decode("utf-8")`를 한 번만 호출합니다.
         """
+        if ids[0] == self.get_bos_id:
+            ids = ids[1:]
+        if ids[len(ids)-1] == self.get_eos_id:
+            ids = ids[:len(ids)-2]
+        ids = [i-4 for i in ids]
         str = ids.decode("utf-8")
         
         return str
-        raise NotImplementedError("BPETokenizer.decode를 구현하세요.")
