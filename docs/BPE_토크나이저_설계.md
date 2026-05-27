@@ -14,13 +14,11 @@
         1. `corpus.encode("utf-8")`값에 BYTE_OFFSET을 더하는걸 반복하여 byte ID 시퀀스를 만듭니다.
         2. 시퀀스에 for zip 두 개씩 묶어서 해당 묶음의 카운트 값을 1씩 올려준다. 끝까지 다 돌고나면 그 중 카운트 값이 가장 큰 페어를 best pair로 선정한다.
         new_id = len(self.id_to_token)
-        3. 시퀀스 갱신: 왼쪽부터 보면서 현재 위치와 다음 위치가 best pair와 같은 pair이면 new_ids 리스트에 new_id를 append하고 두 칸 이동합니다. 아니면 현재 token을 그대로 넣고 한 칸 이동합니다.
-        4. best pair를 이용하여 새로운 시퀀스로 갱신
-        5. self.merges 갱신: merges에 best pair(tuple)를 append
-        6. self.token_to_id 갱신:  best pair(tuple)를 key값에 새 token ID를 value 값에 넣어줍니다.
-        7. self.id_to_token 갱신: 새 token ID를 key값에 best pair(tuple)를 새 ID의 value값에 넣어줍니다.
-
-        8. vocab_size에 도달하거나, 더 이상 pair가 없을 때까지 2~7번을 반복. 한 번 merge하면 sequence가 바뀌니까, 그 다음 pair 빈도는 다시 세야 해.
+        3. self.token_to_id 갱신:  best pair(tuple)를 key값에 새 token ID를 value 값에 넣어줍니다.
+        4. self.id_to_token 갱신: 새 token ID를 key값에 best pair(tuple)를 새 ID의 value값에 넣어줍니다.
+        5. best pair를 이용하여 새로운 시퀀스로 갱신: 왼쪽부터 보면서 현재 위치와 다음 위치가 best pair와 같은 pair이면 new_ids 리스트에 new_id를 append하고 두 칸 이동합니다. 아니면 현재 token을 그대로 넣고 한 칸 이동합니다. 기존 시퀀스를 new_ids 리스트로 갱신합니다.
+        6. self.merges 갱신: merges에 best pair(tuple)를 append
+        7. vocab_size에 도달하거나, 더 이상 pair가 없을 때까지 2~6번을 반복. 한 번 merge하면 sequence가 바뀌므로, 그 다음 pair 빈도는 다시 세야 합니다.
 
         방어 용도 구문
         if best_pair in self.token_to_id:
