@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Byte-level BPE Tokenizer 구현 학습 문서</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #657085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 48px 24px 40px;
+    }
+
+    header .inner,
+    main {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 820px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 26px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .note,
+    .warn,
+    .success {
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #143f6f;
+      background: var(--accent-soft);
+      border-color: #bddcff;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f2d27a;
+    }
+
+    .success {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #a9dfc9;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcff;
+    }
+
+    .mini-card h3 {
+      margin-top: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #0b3b75;
+      background: #dcecff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    footer {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>Byte-level BPE Tokenizer 구현 가이드</h1>
+      <p>
+        이 문서는 <code>src/bpe.py</code>의 TODO를 직접 구현하기 위한 학습용 자료입니다.
+        목표는 외부 tokenizer 없이 UTF-8 byte에서 시작해 BPE merge rule을 학습하고,
+        한국어 문장을 깨뜨리지 않는 encode/decode를 만드는 것입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">1. 목표</a>
+      <a href="#mental-model">2. 핵심 모델</a>
+      <a href="#id-layout">3. ID 설계</a>
+      <a href="#train">4. train 구현</a>
+      <a href="#encode">5. encode 구현</a>
+      <a href="#decode">6. decode 구현</a>
+      <a href="#save-load">7. save/load</a>
+      <a href="#tests">8. 테스트 체크</a>
+      <a href="./BPE_토크나이저_roundtrip_기초.html">초기 round-trip 심화</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 구현 목표</h2>
+      <p>
+        GPT 모델은 문자열을 바로 입력받지 못합니다. 문자열을 정수 token ID의 리스트로 바꾸고,
+        모델 출력 token ID를 다시 문자열로 되돌리는 부품이 tokenizer입니다.
+      </p>
+      <p>
+        이번 과제의 tokenizer는 단어 사전을 외부에서 가져오지 않습니다.
+        모든 문자를 UTF-8 byte로 쪼갠 뒤, 자주 붙어 나오는 이웃 token pair를 합치면서
+        vocabulary를 키우는 byte-level BPE 방식입니다.
+      </p>
+      <p>
+        “vocabulary를 키운다”는 말은 tokenizer가 알고 있는 token 종류를 늘린다는 뜻입니다.
+        처음에는 <code>&lt;pad&gt;</code>, <code>&lt;unk&gt;</code>, <code>&lt;bos&gt;</code>, <code>&lt;eos&gt;</code>
+        4개와 byte token 256개만 있습니다. 그래서 시작 vocabulary 크기는 260개입니다.
+        이후 corpus에서 <code>(241, 153)</code> 같은 pair가 자주 보이면
+        “앞으로 이 pair는 <code>260</code>번 token 하나로 부르자”라고 새 token을 추가합니다.
+        그 다음 pair도 추가하면 <code>261</code>, 또 추가하면 <code>262</code>처럼 vocabulary가 커집니다.
+      </p>
+
+      <div class="note">
+        여기서 말하는 tokenizer는 “문자열을 숫자로 번역하는 부품”입니다.
+        GPT 모델 안의 embedding layer는 문자열 <code>"한글"</code>을 직접 받을 수 없고,
+        <code>[241, 153, 160, 238, 188, 132]</code> 같은 정수 리스트를 받아야 합니다.
+        그래서 <code>encode</code>는 문자열을 정수 리스트로 바꾸고,
+        <code>decode</code>는 정수 리스트를 다시 문자열로 되돌립니다.
+      </div>
+
+      <div class="note">
+        <code>BPETokenizer.train(corpus)</code>에서의 “학습”은 GPT 모델의 가중치를 학습한다는 뜻이 아닙니다.
+        여기서는 긴 텍스트 묶음인 <code>corpus</code>를 훑으면서
+        어떤 byte/token 조합이 자주 붙어 나오는지 세고, 자주 나오는 조합을 새 token으로 등록합니다.
+        즉 “모델을 똑똑하게 만드는 학습”이 아니라 “tokenizer가 쓸 규칙 목록을 만드는 학습”입니다.
+      </div>
+
+      <div class="success">
+        최종적으로 만족해야 하는 가장 중요한 성질은
+        <code>decode(encode(text)) == text</code>입니다. 특히 한국어에서 이 성질이 깨지면
+        byte 처리나 merge token 복원이 잘못된 것입니다.
+      </div>
+    </section>
+
+    <section id="mental-model">
+      <h2>2. 핵심 모델</h2>
+      <div class="two-col">
+        <div class="mini-card">
+          <h3><span class="badge">입력</span> 문자열에서 byte로</h3>
+          <pre><code class="language-python">text = "한글"
+raw_bytes = text.encode("utf-8")
+# [237, 149, 156, 234, 184, 128]</code></pre>
+          <p>
+            사람에게는 두 글자지만 UTF-8에서는 여섯 byte입니다. 이 byte 값에
+            <code>BYTE_OFFSET</code>을 더한 값이 최초 token ID입니다.
+          </p>
+          <p>
+            예를 들어 첫 byte <code>237</code>은 글자 <code>"ㅎ"</code>이 아닙니다.
+            <code>[237, 149, 156]</code> 세 byte가 모두 모였을 때 <code>"한"</code>이 됩니다.
+          </p>
+          <p>
+            <code>"한글"</code>은 먼저 byte 숫자 <code>[237, 149, 156, 234, 184, 128]</code>이 됩니다.
+            여기에 <code>BYTE_OFFSET = 4</code>를 각각 더하면
+            <code>[241, 153, 160, 238, 188, 132]</code>가 됩니다.
+            이것이 merge를 하나도 적용하지 않았을 때의 가장 기본 token ID 리스트입니다.
+          </p>
+        </div>
+
+        <div class="mini-card">
+          <h3><span class="badge">BPE</span> 자주 붙는 쌍 합치기</h3>
+          <pre><code class="language-text">[241, 153, 160, 238, 188, 132]
+가장 흔한 pair가 (241, 153)이라면
+새 token 260을 만들고 치환
+
+[260, 160, 238, 188, 132]</code></pre>
+          <p>
+            merge token은 결국 원래 byte token들의 묶음입니다.
+            따라서 decode에서는 merge token을 byte token까지 펼쳐야 합니다.
+          </p>
+          <p>
+            <code>260</code>은 <code>"한"</code> 전용 번호가 아닙니다.
+            <code>(241, 153)</code>이라는 pair를 합친 번호입니다.
+            그래서 같은 pair를 가진 다른 글자에서도 재사용될 수 있습니다.
+          </p>
+          <p>
+            BPE는 세 개를 한 번에 합치지 않습니다.
+            <code>[241, 153, 160]</code>을 바로 하나로 만드는 대신,
+            먼저 <code>(241, 153)</code>을 <code>260</code>으로 만들고
+            그 다음 <code>(260, 160)</code>을 <code>261</code>로 만들 수 있습니다.
+            그래서 merge token은 이전 merge token을 다시 포함할 수 있습니다.
+          </p>
+        </div>
+      </div>
+
+      <h3>필요한 내부 자료구조</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>역할</th>
+            <th>예시</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>id_to_token</code></td>
+            <td>ID에서 token 정보 찾기</td>
+            <td><code>{4: b"\x00", 260: (241, 153)}</code></td>
+          </tr>
+          <tr>
+            <td><code>token_to_id</code></td>
+            <td>token 정보에서 ID 찾기</td>
+            <td><code>{b"\x00": 4, (241, 153): 260}</code></td>
+          </tr>
+          <tr>
+            <td><code>merges</code></td>
+            <td>학습된 merge rule 순서 저장</td>
+            <td><code>[(241, 153), (260, 160)]</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>세 자료구조가 실제로 쓰이는 장면</h3>
+      <p>
+        <code>token_to_id</code>는 encode할 때 주로 씁니다. 예를 들어 현재 숫자 리스트를 왼쪽부터 보다가
+        <code>(241, 153)</code>이라는 pair를 발견했다고 해봅시다. 이 pair가 학습 때 새 token으로 등록되어 있다면
+        <code>token_to_id[(241, 153)]</code>를 통해 결과 ID <code>260</code>을 찾을 수 있습니다.
+        그래서 encode는 <code>[241, 153, 160]</code>을 <code>[260, 160]</code>처럼 줄일 수 있습니다.
+      </p>
+      <p>
+        <code>id_to_token</code>은 decode할 때 주로 씁니다. decode는 <code>260</code>을 보고
+        “이게 원래 뭐였지?”를 알아야 합니다. <code>id_to_token[260]</code>이
+        <code>(241, 153)</code>이면, decode는 <code>260</code>을 다시 <code>241</code>, <code>153</code>으로 펼칩니다.
+        merge token이 여러 번 겹쳐 있으면 byte token이 나올 때까지 계속 펼칩니다.
+      </p>
+      <p>
+        <code>merges</code>는 순서 때문에 필요합니다. BPE는 한 번에 세 개, 네 개를 합치는 방식이 아니라
+        항상 두 token짜리 pair를 하나로 합칩니다. 그리고 어떤 pair를 먼저 합쳤는지가 다음 merge 결과에 영향을 줍니다.
+        그래서 encode도 학습 때 만들어진 순서 그대로 merge rule을 적용해야 합니다.
+      </p>
+    </section>
+
+    <section id="id-layout">
+      <h2>3. Token ID 설계</h2>
+      <p>
+        이 과제는 특수 token ID와 byte token ID가 고정되어 있습니다.
+        테스트도 이 배치를 기준으로 확인합니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ID 범위</th>
+            <th>의미</th>
+            <th>저장 형태</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>0</code></td>
+            <td><code>&lt;pad&gt;</code></td>
+            <td>문자열</td>
+          </tr>
+          <tr>
+            <td><code>1</code></td>
+            <td><code>&lt;unk&gt;</code></td>
+            <td>문자열</td>
+          </tr>
+          <tr>
+            <td><code>2</code></td>
+            <td><code>&lt;bos&gt;</code></td>
+            <td>문자열</td>
+          </tr>
+          <tr>
+            <td><code>3</code></td>
+            <td><code>&lt;eos&gt;</code></td>
+            <td>문자열</td>
+          </tr>
+          <tr>
+            <td><code>4~259</code></td>
+            <td>원본 byte <code>0~255</code></td>
+            <td><code>bytes([byte_value])</code></td>
+          </tr>
+          <tr>
+            <td><code>260+</code></td>
+            <td>BPE merge token</td>
+            <td><code>(left_id, right_id)</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>특수 token은 왜 필요한가</h3>
+      <p>
+        특수 token은 실제 문장에 들어 있는 글자가 아니라, 모델과 tokenizer가 약속해서 쓰는 표지판입니다.
+        <code>&lt;pad&gt;</code>는 길이를 맞추기 위한 빈칸, <code>&lt;bos&gt;</code>는 시작 표시,
+        <code>&lt;eos&gt;</code>는 끝 표시입니다. <code>&lt;unk&gt;</code>는 모르는 token이라는 뜻이지만,
+        byte-level 방식에서는 모든 문자를 byte로 표현할 수 있어서 자주 쓰이지는 않습니다.
+      </p>
+
+      <h3><code>BYTE_OFFSET</code>을 더하는 이유</h3>
+      <p>
+        byte 값은 원래 <code>0~255</code>입니다. 그런데 ID <code>0~3</code>은 이미 특수 token이 쓰고 있습니다.
+        그래서 byte 값에 <code>BYTE_OFFSET = 4</code>를 더해서 byte token ID를 <code>4~259</code>로 밀어 둡니다.
+      </p>
+      <pre><code class="language-text">byte 0   -> token ID 4
+byte 65  -> token ID 69
+byte 237 -> token ID 241
+byte 255 -> token ID 259</code></pre>
+      <p>
+        이 처리를 하지 않으면 문제가 생깁니다. 예를 들어 byte 값 <code>0</code>을 token ID <code>0</code>으로 쓰면,
+        token ID <code>0</code>이 <code>&lt;pad&gt;</code>인지 byte <code>0</code>인지 구분할 수 없습니다.
+        그래서 byte token은 무조건 특수 token 4개 뒤에서 시작하게 만듭니다.
+      </p>
+
+      <h3><code>bytes([byte_value])</code>는 왜 쓰나</h3>
+      <p>
+        <code>byte_value</code>는 <code>0~255</code> 사이의 숫자입니다.
+        <code>bytes([65])</code>는 숫자 <code>65</code> 하나를 담은 byte 객체이고, 화면에는 <code>b"A"</code>처럼 보입니다.
+        한글의 경우 <code>bytes([237])</code> 하나만으로는 문자가 되지 않습니다.
+        <code>bytes([237, 149, 156]).decode("utf-8")</code>처럼 세 byte가 모여야 <code>"한"</code>이 됩니다.
+      </p>
+
+      <h3><code>_init_special_tokens</code> 구현 순서</h3>
+      <ol>
+        <li><code>id_to_token</code>, <code>token_to_id</code>, <code>merges</code>를 초기화합니다.</li>
+        <li>특수 token 4개를 ID <code>0~3</code>에 넣습니다.</li>
+        <li>byte 값 <code>0~255</code>를 순회합니다.</li>
+        <li>ID는 <code>BYTE_OFFSET + byte_value</code>로 정합니다.</li>
+        <li>token 값은 <code>bytes([byte_value])</code>로 저장합니다.</li>
+      </ol>
+    </section>
+
+    <section id="train">
+      <h2>4. <code>train</code> 구현</h2>
+      <p>
+        BPE 학습은 현재 token ID 시퀀스에서 가장 자주 등장하는 이웃 pair를 찾고,
+        그 pair를 새 token 하나로 치환하는 일을 반복합니다.
+      </p>
+
+      <h3>문장을 하나 두고 천천히 보면</h3>
+      <pre><code class="language-text">문자열: "한글"
+UTF-8 byte: [237, 149, 156, 234, 184, 128]
+처음 token ID sequence: [241, 153, 160, 238, 188, 132]
+
+이웃 pair들:
+(241, 153), (153, 160), (160, 238), (238, 188), (188, 132)</code></pre>
+      <p>
+        여기서 sequence는 그냥 “순서가 있는 리스트”입니다. 위 예시에서는
+        <code>[241, 153, 160, 238, 188, 132]</code>가 현재 token ID sequence입니다.
+        처음에는 token 하나가 byte 하나를 의미합니다. 하지만 merge가 진행되면 token 하나가 여러 byte 묶음을 의미할 수 있습니다.
+      </p>
+      <p>
+        pair는 이 리스트에서 바로 옆에 붙어 있는 token 두 개입니다.
+        <code>[241, 153, 160]</code> 안에는 <code>(241, 153)</code>과 <code>(153, 160)</code>이라는 pair가 있습니다.
+        <code>train</code>은 corpus 전체에서 이런 pair들이 각각 몇 번 나오는지 셉니다.
+        가장 자주 나온 pair는 “앞으로 이 둘을 하나의 token으로 취급하자”는 규칙이 됩니다.
+      </p>
+
+      <h3>전체 흐름</h3>
+      <pre><code class="language-text">1. 기본 vocabulary 초기화
+2. corpus를 UTF-8 bytes로 변환
+3. 각 byte를 byte token ID로 변환
+4. vocab_size에 도달할 때까지 반복
+   4-1. 이웃 pair 빈도 세기
+   4-2. 가장 빈도가 높은 pair 선택
+   4-3. 새 token ID 생성
+   4-4. pair를 새 token ID로 치환
+   4-5. merges, id_to_token, token_to_id 갱신</code></pre>
+
+      <p>
+        <code>corpus</code>는 tokenizer가 규칙을 배울 때 보는 텍스트 전체입니다.
+        예를 들어 영화 리뷰 문장 만 개를 하나로 이어 붙인 긴 문자열이 corpus가 될 수 있습니다.
+        BPE는 이 corpus를 먼저 byte token ID sequence로 바꾼 다음,
+        그 안에서 어떤 pair가 자주 붙어 나오는지 봅니다.
+      </p>
+      <p>
+        <code>vocab_size</code>는 vocabulary의 목표 크기입니다.
+        vocabulary는 tokenizer가 알고 있는 token 목록입니다.
+        처음에는 특수 token 4개와 byte token 256개가 있으므로 총 260개에서 시작합니다.
+        <code>vocab_size=300</code>이면 새 merge token을 최대 40개까지 추가할 수 있습니다.
+      </p>
+
+      <h3>pair 빈도 세기</h3>
+      <pre><code class="language-python">pair_counts = {}
+for a, b in zip(ids, ids[1:]):
+    pair = (a, b)
+    pair_counts[pair] = pair_counts.get(pair, 0) + 1</code></pre>
+      <p>
+        <code>zip(ids, ids[1:])</code>는 리스트를 한 칸 밀어서 나란히 보는 코드입니다.
+        예를 들어 <code>ids = [10, 20, 10, 20]</code>이면
+        <code>ids</code>는 <code>[10, 20, 10, 20]</code>,
+        <code>ids[1:]</code>는 <code>[20, 10, 20]</code>입니다.
+        둘을 zip으로 묶으면 <code>(10, 20)</code>, <code>(20, 10)</code>, <code>(10, 20)</code>이 나옵니다.
+        그래서 <code>(10, 20)</code>의 빈도는 2가 됩니다.
+      </p>
+      <pre><code class="language-text">ids = [10, 20, 10, 20]
+
+이웃 pair:
+(10, 20)
+(20, 10)
+(10, 20)
+
+pair_counts:
+(10, 20): 2
+(20, 10): 1</code></pre>
+
+      <h3>pair 치환 아이디어</h3>
+      <p>
+        왼쪽부터 보면서 현재 위치와 다음 위치가 best pair이면 새 token ID 하나를 넣고
+        두 칸 이동합니다. 아니면 현재 token을 그대로 넣고 한 칸 이동합니다.
+      </p>
+      <pre><code class="language-python">new_ids = []
+i = 0
+while i &lt; len(ids):
+    if i &lt; len(ids) - 1 and (ids[i], ids[i + 1]) == best_pair:
+        new_ids.append(new_id)
+        i += 2
+    else:
+        new_ids.append(ids[i])
+        i += 1</code></pre>
+      <p>
+        여기서 두 칸 이동하는 이유가 중요합니다.
+        <code>(10, 20)</code>을 새 token <code>260</code>으로 바꿨다면,
+        이미 <code>10</code>과 <code>20</code> 두 token을 소비한 것입니다.
+        그래서 다음 검사는 그 다음 위치에서 시작해야 합니다.
+      </p>
+      <pre><code class="language-text">best_pair = (10, 20)
+new_id = 260
+
+기존: [10, 20, 10, 20]
+치환: [260, 260]</code></pre>
+
+      <div class="warn">
+        성능 최적화는 나중 문제입니다. 먼저 작은 corpus에서 정확히 동작하게 만드세요.
+        <code>corpus[:5000]</code>, <code>vocab_size=300</code> 정도로 통과 확인 후 키우는 편이 안전합니다.
+      </div>
+    </section>
+
+    <section id="encode">
+      <h2>5. <code>encode</code> 구현</h2>
+      <p>
+        encode는 학습 때와 같은 방식으로 문자열을 byte token ID로 바꾼 뒤,
+        저장된 merge rule을 학습 순서대로 적용합니다.
+      </p>
+
+      <div class="note">
+        <code>encode</code>는 “새 문장을 모델이 읽을 수 있는 숫자 리스트로 바꾸는 함수”입니다.
+        학습된 <code>merges</code>가 없다면 byte token ID까지만 만들고 끝납니다.
+        학습된 <code>merges</code>가 있다면 자주 등장한 조합을 더 큰 token으로 바꿉니다.
+      </div>
+
+      <h3>중요한 점</h3>
+      <ul>
+        <li>처음에는 <code>text.encode("utf-8")</code>를 사용합니다.</li>
+        <li>각 byte 값은 <code>BYTE_OFFSET + byte_value</code>로 변환합니다.</li>
+        <li><code>self.merges</code>에 저장된 순서대로 pair 치환을 반복합니다.</li>
+        <li><code>add_bos_eos=True</code>이면 앞에 <code>2</code>, 뒤에 <code>3</code>을 붙입니다.</li>
+      </ul>
+
+      <pre><code class="language-text">"ABAB"
+byte token IDs: [69, 70, 69, 70]
+merge rule: (69, 70) -> 260
+encoded: [260, 260]</code></pre>
+
+      <h3>merge rule을 적용한다는 말의 의미</h3>
+      <pre><code class="language-text">처음: [69, 70, 69, 70]
+rule: (69, 70) -> 260
+
+왼쪽부터 보면서 (69, 70)을 만나면 260으로 교체
+
+결과: [260, 260]</code></pre>
+      <p>
+        encode는 새 문장을 볼 때도 train 때 배운 merge rule을 그대로 사용합니다.
+        train 때 <code>(69, 70)</code>을 <code>260</code>으로 합치기로 배웠다면,
+        나중에 다른 문장에서 똑같은 <code>(69, 70)</code>이 나와도 똑같이 <code>260</code>으로 바꿉니다.
+        그래서 한 번 학습한 vocabulary와 merges를 저장해 두면, 이후 문장들을 일관된 방식으로 숫자화할 수 있습니다.
+      </p>
+
+      <div class="note">
+        encode에서 merge rule을 적용할 때 새 ID는 <code>token_to_id[pair]</code>로 찾을 수 있습니다.
+        pair가 vocabulary에 없다면 그 merge rule은 건너뛰는 방식으로 방어할 수 있습니다.
+      </div>
+    </section>
+
+    <section id="decode">
+      <h2>6. <code>decode</code> 구현</h2>
+      <p>
+        decode는 token ID 리스트를 다시 byte 리스트로 펼친 뒤,
+        마지막에 한 번만 UTF-8 decode를 해야 합니다.
+      </p>
+
+      <div class="note">
+        decode를 “ID 하나를 문자 하나로 바꾸는 함수”라고 생각하면 한국어에서 바로 막힙니다.
+        정확한 생각은 “ID들을 원래 byte 숫자들로 복원한 다음, byte 전체를 문자열로 바꾸는 함수”입니다.
+      </div>
+
+      <h3>왜 byte 하나씩 decode하면 안 되나?</h3>
+      <p>
+        한국어 한 글자는 보통 UTF-8 byte 3개입니다. 예를 들어 <code>"한"</code>은
+        <code>[237, 149, 156]</code>입니다. 중간 byte 하나만 문자로 decode하면 깨질 수 있습니다.
+      </p>
+
+      <h3>merge token 펼치기</h3>
+      <pre><code class="language-text">id_to_token[260] = (241, 153)
+id_to_token[261] = (260, 160)
+
+261을 펼치면
+-> 260, 160
+-> 241, 153, 160
+-> byte 값으로는 237, 149, 156</code></pre>
+      <p>
+        위 예시에서 <code>261</code>은 바로 byte가 아닙니다.
+        <code>261</code>은 <code>(260, 160)</code>을 의미하고,
+        그 안의 <code>260</code>도 다시 <code>(241, 153)</code>을 의미합니다.
+        그래서 decode는 ID를 한 번만 바꾸고 끝내면 안 됩니다.
+        byte token ID가 나올 때까지 계속 펼쳐야 합니다.
+      </p>
+      <p>
+        byte token ID는 <code>4~259</code> 범위입니다.
+        이 범위의 ID를 만나면 <code>BYTE_OFFSET</code>을 빼서 원래 byte 값으로 되돌립니다.
+        예를 들어 token ID <code>241</code>은 byte 값 <code>237</code>입니다.
+        이렇게 모은 byte 값들이 <code>[237, 149, 156]</code>이 되면,
+        마지막에 <code>bytes(...).decode("utf-8")</code>로 <code>"한"</code>을 복원합니다.
+      </p>
+
+      <h3>구현 아이디어</h3>
+      <ol>
+        <li>특수 token은 <code>skip_special=True</code>일 때 건너뜁니다.</li>
+        <li>ID가 byte token이면 <code>id - BYTE_OFFSET</code>을 byte 리스트에 추가합니다.</li>
+        <li>ID가 merge token이면 재귀적으로 왼쪽, 오른쪽 token을 펼칩니다.</li>
+        <li>마지막에 <code>bytes(byte_values).decode("utf-8", errors="replace")</code>를 호출합니다.</li>
+      </ol>
+
+      <div class="success">
+        decode의 핵심은 “문자열을 조립한다”가 아니라 “원래 byte 배열을 복원한다”입니다.
+      </div>
+    </section>
+
+    <section id="save-load">
+      <h2>7. <code>save</code> / <code>load</code> 구현</h2>
+      <p>
+        JSON은 Python의 <code>bytes</code>와 <code>tuple</code>을 그대로 저장하지 못합니다.
+        따라서 type 정보를 명시해서 저장하고, load할 때 원래 타입으로 되돌려야 합니다.
+      </p>
+
+      <h3>왜 저장과 복원이 필요한가</h3>
+      <p>
+        BPE vocabulary를 학습하는 데 시간이 걸립니다. 매번 실행할 때마다 corpus를 다시 보고
+        pair 빈도를 다시 세면 비효율적입니다. 그래서 한 번 학습한
+        <code>id_to_token</code>, <code>token_to_id</code>, <code>merges</code>를 파일로 저장해 두고,
+        다음 실행에서는 <code>load</code>로 바로 복원합니다.
+      </p>
+      <p>
+        단, JSON 파일은 문자열, 숫자, 리스트, 객체 같은 단순한 값만 안전하게 저장합니다.
+        Python의 <code>bytes</code>와 <code>tuple</code>은 그대로 저장할 수 없어서
+        <code>{"type": "byte", "value": 65}</code>처럼 풀어서 저장해야 합니다.
+      </p>
+      <p>
+        예를 들어 Python 안에서는 merge token을 <code>(69, 70)</code> 같은 tuple로 저장할 수 있습니다.
+        하지만 JSON으로 저장하면 tuple이라는 타입이 사라지고 리스트 <code>[69, 70]</code>처럼 저장됩니다.
+        그래서 load할 때는 이 리스트를 다시 tuple로 바꿔야 합니다.
+        마찬가지로 <code>b"A"</code> 같은 bytes 객체도 JSON에 그대로 넣을 수 없으므로,
+        저장할 때는 <code>{"type": "byte", "value": 65}</code>처럼 숫자로 풀고,
+        load할 때 <code>bytes([65])</code>로 되돌립니다.
+      </p>
+
+      <h3>저장 형식 예시</h3>
+      <pre><code class="language-json">{
+  "vocab_size": 3000,
+  "id_to_token": {
+    "0": {"type": "special", "value": "&lt;pad&gt;"},
+    "4": {"type": "byte", "value": 0},
+    "260": {"type": "merge", "value": [69, 70]}
+  },
+  "merges": [[69, 70], [260, 71]]
+}</code></pre>
+
+      <h3>load에서 복원할 것</h3>
+      <ul>
+        <li><code>id_to_token</code>의 key를 문자열에서 int로 바꿉니다.</li>
+        <li><code>type == "special"</code>이면 문자열 token으로 복원합니다.</li>
+        <li><code>type == "byte"</code>이면 <code>bytes([value])</code>로 복원합니다.</li>
+        <li><code>type == "merge"</code>이면 <code>tuple(value)</code>로 복원합니다.</li>
+        <li><code>token_to_id</code>는 복원된 <code>id_to_token</code>을 순회하며 다시 만듭니다.</li>
+        <li><code>merges</code>는 내부 원소를 tuple로 바꿔 <code>[(a, b), ...]</code> 형태로 만듭니다.</li>
+      </ul>
+    </section>
+
+    <section id="tests">
+      <h2>8. 테스트 체크리스트</h2>
+      <p>구현 후에는 아래 순서로 확인하세요.</p>
+
+      <pre><code class="language-bash">pytest tests/test_bpe.py -v</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>테스트</th>
+            <th>확인하는 내용</th>
+            <th>자주 나는 실수</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>test_init_special_tokens</code></td>
+            <td>특수 token과 byte token 256개 초기화</td>
+            <td>byte token을 int로 저장하고 <code>bytes</code>로 저장하지 않음</td>
+          </tr>
+          <tr>
+            <td><code>test_save_load_restores_vocab</code></td>
+            <td>merge rule과 vocabulary 복원</td>
+            <td>JSON load 후 ID key가 문자열로 남음</td>
+          </tr>
+          <tr>
+            <td><code>test_encode_decode_restores_original_text</code></td>
+            <td>한국어/영어 혼합 문장 복원</td>
+            <td>byte를 하나씩 문자로 변환해서 한글이 깨짐</td>
+          </tr>
+          <tr>
+            <td><code>test_train_increases_vocab</code></td>
+            <td>소량 corpus에서 merge token 생성</td>
+            <td>새 ID를 추가했지만 <code>merges</code>를 갱신하지 않음</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>직접 확인용 미니 스크립트</h3>
+      <pre><code class="language-python">from src.bpe import BPETokenizer
+
+tok = BPETokenizer(vocab_size=300)
+tok.train("이 영화는 정말 좋았다. 이 영화는 다시 보고 싶다.")
+
+samples = [
+    "이 영화는 정말 좋았다!",
+    "연기, 음악, 연출 모두 좋음 ㅋㅋ",
+    "한글 English 123 !?",
+]
+
+for text in samples:
+    ids = tok.encode(text, add_bos_eos=True)
+    restored = tok.decode(ids, skip_special=True)
+    assert restored == text, (text, restored)
+
+print("BPE tokenizer smoke test passed")</code></pre>
+    </section>
+
+    <section>
+      <h2>9. 구현 순서 추천</h2>
+      <ol>
+        <li><code>_init_special_tokens</code>를 먼저 구현합니다.</li>
+        <li>merge 없이도 동작하는 <code>encode</code>, <code>decode</code>를 만듭니다.</li>
+        <li>한국어 문장 복원이 되는지 확인합니다. <a href="./BPE_토크나이저_roundtrip_기초.html">이 3단계만 자세히 보는 별도 문서</a></li>
+        <li><code>train</code>에서 pair count와 pair replacement를 구현합니다.</li>
+        <li>학습된 <code>merges</code>를 encode에 적용합니다.</li>
+        <li><code>save</code>, <code>load</code>를 구현하고 복원 후 encode/decode를 다시 확인합니다.</li>
+      </ol>
+
+      <div class="note">
+        이 순서로 하면 디버깅이 편합니다. decode가 먼저 안정되어야 train에서 만든 merge token도
+        안전하게 검증할 수 있습니다.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    작성 기준 파일: src/bpe.py. 이 문서는 과제 구현을 돕는 학습 자료이며, 외부 tokenizer 라이브러리를 사용하지 않는 byte-level BPE 구현을 전제로 합니다.
+  </footer>
+</body>
+</html>

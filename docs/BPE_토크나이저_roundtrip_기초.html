@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BPE Tokenizer 1단계: byte round-trip 먼저 만들기</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #657085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 860px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a,
+    .back-link {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .back-link {
+      margin-bottom: 16px;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .note,
+    .warn,
+    .success {
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #143f6f;
+      background: var(--accent-soft);
+      border-color: #bddcff;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f2d27a;
+    }
+
+    .success {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #a9dfc9;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .mini-card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcff;
+    }
+
+    .mini-card h3 {
+      margin-top: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      color: #0b3b75;
+      background: #dcecff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .checklist li {
+      margin: 8px 0;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>BPE Tokenizer 1단계: byte round-trip 먼저 만들기</h1>
+      <p>
+        <code>train</code>과 merge rule을 구현하기 전에,
+        <code>_init_special_tokens</code>, merge 없는 <code>encode</code>,
+        merge 없는 <code>decode</code>만으로 한국어 문장을 원문 그대로 복원하는 단계입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <a class="back-link" href="./BPE_토크나이저_학습_가이드.html">전체 BPE 문서로 돌아가기</a>
+
+    <nav aria-label="문서 목차">
+      <a href="#why-first">1. 왜 이걸 먼저 하나</a>
+      <a href="#target-state">2. 목표 상태</a>
+      <a href="#init">3. _init_special_tokens</a>
+      <a href="#encode">4. merge 없는 encode</a>
+      <a href="#decode">5. merge 없는 decode</a>
+      <a href="#korean">6. 한국어 복원 확인</a>
+      <a href="#debugging">7. 디버깅 체크</a>
+    </nav>
+
+    <section id="why-first">
+      <h2>1. 왜 이 단계를 먼저 하나</h2>
+      <p>
+        BPE tokenizer는 크게 두 층으로 나뉩니다. 첫 번째 층은 모든 문자열을 UTF-8 byte token으로
+        바꾸고 다시 문자열로 복원하는 기본층입니다. 두 번째 층은 자주 나오는 byte/token pair를
+        합쳐 token 수를 줄이는 merge층입니다.
+      </p>
+      <p>
+        merge층은 기본층 위에서만 안전하게 동작합니다. 기본 byte encode/decode가 불안정하면
+        train에서 merge token을 아무리 잘 만들어도 한국어가 깨지고, 어디서 문제가 생겼는지
+        추적하기가 어려워집니다.
+      </p>
+
+      <div class="success">
+        이 문서의 완료 기준은 <code>train</code> 없이도
+        <code>decode(encode("한글 English 123")) == "한글 English 123"</code>가 되는 것입니다.
+      </div>
+    </section>
+
+    <section id="target-state">
+      <h2>2. 목표 상태</h2>
+      <p>
+        이 단계에서는 <code>self.merges</code>가 비어 있어도 괜찮습니다. 중요한 것은 특수 token과
+        byte token 256개가 정확히 잡히고, 모든 문자가 byte 단위로 빠짐없이 왕복되는 것입니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>항목</th>
+            <th>완료 기준</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>id_to_token</code></td>
+            <td>ID <code>0~3</code>은 특수 token 문자열, ID <code>4~259</code>는 <code>bytes([0])~bytes([255])</code></td>
+          </tr>
+          <tr>
+            <td><code>token_to_id</code></td>
+            <td><code>id_to_token</code>의 반대 방향 매핑이 모두 들어 있음</td>
+          </tr>
+          <tr>
+            <td><code>merges</code></td>
+            <td>아직 빈 리스트여도 됨</td>
+          </tr>
+          <tr>
+            <td><code>encode</code></td>
+            <td>문자열을 UTF-8 byte token ID 리스트로 변환</td>
+          </tr>
+          <tr>
+            <td><code>decode</code></td>
+            <td>byte token ID 리스트를 원래 UTF-8 byte 배열로 복원한 뒤 문자열로 변환</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>예상 예시</h3>
+      <pre><code class="language-python">"한".encode("utf-8")
+# b'\xed\x95\x9c'
+
+list("한".encode("utf-8"))
+# [237, 149, 156]
+
+# BYTE_OFFSET이 4이므로 byte token ID는:
+[237 + 4, 149 + 4, 156 + 4]
+# [241, 153, 160]</code></pre>
+
+      <div class="note">
+        이 단계에서 <code>"한"</code>은 하나의 token이 아닙니다. byte token 3개입니다.
+        BPE 학습이 진행되면 나중에 이 3개가 하나 또는 두 개의 merge token으로 합쳐질 수 있습니다.
+      </div>
+    </section>
+
+    <section id="init">
+      <h2>3. <code>_init_special_tokens</code> 구현</h2>
+      <p>
+        이 함수는 tokenizer의 기본 vocabulary를 만드는 역할입니다.
+        이후 <code>train</code>, <code>encode</code>, <code>decode</code>가 모두 이 매핑에 의존합니다.
+      </p>
+
+      <h3>구현 흐름</h3>
+      <ol>
+        <li><code>self.id_to_token</code>, <code>self.token_to_id</code>, <code>self.merges</code>를 초기 상태로 비웁니다.</li>
+        <li><code>SPECIAL_TOKENS</code>를 순회하면서 ID <code>0~3</code>에 등록합니다.</li>
+        <li>byte 값 <code>0~255</code>를 순회합니다.</li>
+        <li>각 byte의 token ID는 <code>BYTE_OFFSET + byte_value</code>로 계산합니다.</li>
+        <li>각 byte token 값은 반드시 <code>bytes([byte_value])</code>로 저장합니다.</li>
+      </ol>
+
+      <h3>의사 코드</h3>
+      <pre><code class="language-python">def _init_special_tokens(self):
+    self.id_to_token = {}
+    self.token_to_id = {}
+    self.merges = []
+
+    for token, idx in SPECIAL_IDS.items():
+        self.id_to_token[idx] = token
+        self.token_to_id[token] = idx
+
+    for byte_value in range(NUM_BYTES):
+        token_id = BYTE_OFFSET + byte_value
+        token = bytes([byte_value])
+        self.id_to_token[token_id] = token
+        self.token_to_id[token] = token_id</code></pre>
+
+      <h3>직접 확인</h3>
+      <pre><code class="language-python">tok = BPETokenizer(vocab_size=300)
+tok._init_special_tokens()
+
+assert tok.id_to_token[0] == "&lt;pad&gt;"
+assert tok.id_to_token[3] == "&lt;eos&gt;"
+assert tok.id_to_token[4] == bytes([0])
+assert tok.id_to_token[259] == bytes([255])
+assert tok.token_to_id[bytes([65])] == 69</code></pre>
+
+      <div class="warn">
+        <code>bytes([byte_value])</code>와 <code>byte_value</code>는 다릅니다.
+        <code>id_to_token[69]</code>에 <code>65</code>를 저장하는 게 아니라
+        <code>b"A"</code>를 저장해야 합니다.
+      </div>
+    </section>
+
+    <section id="encode">
+      <h2>4. merge 없는 <code>encode</code> 구현</h2>
+      <p>
+        아직 merge rule을 적용하지 않는 encode는 매우 단순합니다.
+        문자열을 UTF-8 byte로 바꾸고, 각 byte 값에 <code>BYTE_OFFSET</code>을 더하면 됩니다.
+      </p>
+
+      <h3>구현 흐름</h3>
+      <ol>
+        <li>기본 vocabulary가 비어 있으면 <code>_init_special_tokens()</code>를 호출합니다.</li>
+        <li><code>text.encode("utf-8")</code>로 byte열을 얻습니다.</li>
+        <li>각 byte 값 <code>b</code>를 <code>BYTE_OFFSET + b</code>로 변환합니다.</li>
+        <li>이 단계에서는 <code>self.merges</code>가 비어 있으므로 merge 적용은 하지 않아도 됩니다.</li>
+        <li><code>add_bos_eos=True</code>이면 앞뒤에 <code>&lt;bos&gt;</code>, <code>&lt;eos&gt;</code> ID를 붙입니다.</li>
+      </ol>
+
+      <h3>의사 코드</h3>
+      <pre><code class="language-python">def encode(self, text, add_bos_eos=False):
+    if not self.id_to_token:
+        self._init_special_tokens()
+
+    ids = [BYTE_OFFSET + b for b in text.encode("utf-8")]
+
+    # 지금 단계에서는 self.merges가 비어 있으므로 아무 일도 하지 않음
+    # 나중에 train 구현 후 여기에 merge rule 적용 로직이 들어감
+
+    if add_bos_eos:
+        ids = [self.get_bos_id()] + ids + [self.get_eos_id()]
+
+    return ids</code></pre>
+
+      <h3>예시</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>입력</th>
+            <th>UTF-8 byte</th>
+            <th>token ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>"A"</code></td>
+            <td><code>[65]</code></td>
+            <td><code>[69]</code></td>
+          </tr>
+          <tr>
+            <td><code>"한"</code></td>
+            <td><code>[237, 149, 156]</code></td>
+            <td><code>[241, 153, 160]</code></td>
+          </tr>
+          <tr>
+            <td><code>"한A"</code></td>
+            <td><code>[237, 149, 156, 65]</code></td>
+            <td><code>[241, 153, 160, 69]</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        byte-level tokenizer는 처음 보는 한국어 단어도 <code>&lt;unk&gt;</code>로 바꾸지 않습니다.
+        모든 문자는 UTF-8 byte로 표현할 수 있기 때문입니다.
+      </div>
+    </section>
+
+    <section id="decode">
+      <h2>5. merge 없는 <code>decode</code> 구현</h2>
+      <p>
+        decode는 encode의 반대입니다. token ID에서 byte 값을 복원하고,
+        모든 byte를 모은 뒤 마지막에 한 번만 UTF-8 decode합니다.
+      </p>
+
+      <h3>구현 흐름</h3>
+      <ol>
+        <li>결과를 담을 <code>byte_values</code> 리스트를 만듭니다.</li>
+        <li>입력 ID를 순회합니다.</li>
+        <li><code>skip_special=True</code>이고 ID가 <code>0~3</code>이면 건너뜁니다.</li>
+        <li>ID가 <code>4~259</code>이면 <code>id - BYTE_OFFSET</code>을 <code>byte_values</code>에 추가합니다.</li>
+        <li>마지막에 <code>bytes(byte_values).decode("utf-8")</code>를 호출합니다.</li>
+      </ol>
+
+      <h3>의사 코드</h3>
+      <pre><code class="language-python">def decode(self, ids, skip_special=True):
+    byte_values = []
+
+    for token_id in ids:
+        if skip_special and token_id in SPECIAL_IDS.values():
+            continue
+
+        if BYTE_OFFSET &lt;= token_id &lt; BYTE_OFFSET + NUM_BYTES:
+            byte_values.append(token_id - BYTE_OFFSET)
+            continue
+
+        # merge token은 다음 단계에서 재귀적으로 펼치도록 구현
+        # 지금 단계에서는 encode가 merge token을 만들지 않으므로 도달하지 않음
+
+    return bytes(byte_values).decode("utf-8")</code></pre>
+
+      <h3>왜 마지막에 한 번만 decode해야 하나</h3>
+      <p>
+        <code>"한"</code>의 byte는 <code>[237, 149, 156]</code>입니다.
+        이 중 <code>237</code> 하나만 보면 완성된 문자가 아닙니다.
+        따라서 byte 하나씩 <code>chr</code>로 바꾸거나 하나씩 decode하면 한국어가 깨집니다.
+      </p>
+
+      <pre><code class="language-python">byte_values = [237, 149, 156]
+text = bytes(byte_values).decode("utf-8")
+assert text == "한"</code></pre>
+
+      <div class="warn">
+        <code>chr(token_id)</code>, <code>chr(byte_value)</code>, <code>bytes([b]).decode(...)</code>를
+        반복하는 방식은 한국어 복원에 부적합합니다. byte 배열 전체를 만든 뒤 한 번에 decode하세요.
+      </div>
+    </section>
+
+    <section id="korean">
+      <h2>6. 한국어 문장 복원 확인</h2>
+      <p>
+        이 단계에서는 <code>pytest tests/test_bpe.py -v</code> 전체가 아직 통과하지 않아도 됩니다.
+        <code>train</code>, <code>save</code>, <code>load</code>가 남아 있기 때문입니다.
+        대신 아래 smoke test로 byte round-trip부터 확인합니다.
+      </p>
+
+      <pre><code class="language-python">from src.bpe import BPETokenizer
+
+tok = BPETokenizer(vocab_size=300)
+tok._init_special_tokens()
+
+samples = [
+    "이 영화는 정말 좋았다!",
+    "연기, 음악, 연출 모두 좋음 ㅋㅋ",
+    "한글 English 123 !?",
+    "",
+]
+
+for text in samples:
+    ids = tok.encode(text, add_bos_eos=True)
+    restored = tok.decode(ids, skip_special=True)
+    assert restored == text, (text, ids, restored)
+
+print("byte-level round-trip passed")</code></pre>
+
+      <h3>직접 눈으로 확인하기</h3>
+      <pre><code class="language-python">text = "한글"
+ids = tok.encode(text, add_bos_eos=True)
+print(ids)
+print(tok.decode(ids))
+
+# 예상 형태:
+# [2, 241, 153, 160, 238, 188, 132, 3]
+# 한글</code></pre>
+
+      <div class="success">
+        여기까지 되면 BPE의 바닥공사는 끝난 것입니다. 다음 단계에서 merge token을 추가해도
+        decode는 결국 byte 배열을 복원한다는 원칙만 유지하면 됩니다.
+      </div>
+    </section>
+
+    <section id="debugging">
+      <h2>7. 디버깅 체크</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>증상</th>
+            <th>가능한 원인</th>
+            <th>확인 방법</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>한국어가 깨진다</td>
+            <td>byte를 하나씩 문자로 변환함</td>
+            <td><code>bytes(byte_values).decode("utf-8")</code>를 마지막에 한 번만 쓰는지 확인</td>
+          </tr>
+          <tr>
+            <td><code>id_to_token[4]</code>가 이상하다</td>
+            <td>byte token을 <code>bytes([0])</code>가 아니라 int나 문자열로 저장함</td>
+            <td><code>assert tok.id_to_token[4] == bytes([0])</code></td>
+          </tr>
+          <tr>
+            <td><code>&lt;bos&gt;</code>, <code>&lt;eos&gt;</code>가 출력에 섞인다</td>
+            <td><code>skip_special</code> 처리가 없음</td>
+            <td>ID <code>0~3</code>을 건너뛰는지 확인</td>
+          </tr>
+          <tr>
+            <td>빈 문자열에서 에러가 난다</td>
+            <td>byte 리스트가 비어 있는 경우를 고려하지 않음</td>
+            <td><code>bytes([]).decode("utf-8") == ""</code> 확인</td>
+          </tr>
+          <tr>
+            <td>테스트에서 ID가 안 맞는다</td>
+            <td><code>BYTE_OFFSET</code>을 더하지 않거나 두 번 더함</td>
+            <td><code>"A"</code>가 <code>[69]</code>가 되는지 확인</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>이 단계에서 아직 하지 않아도 되는 것</h3>
+      <ul class="checklist">
+        <li><code>pair_counts</code>를 세는 로직</li>
+        <li>가장 빈번한 pair를 찾아 새 token으로 만드는 로직</li>
+        <li><code>self.merges</code>를 encode에 적용하는 로직</li>
+        <li>merge token을 재귀적으로 펼치는 decode 로직</li>
+        <li>JSON save/load</li>
+      </ul>
+
+      <div class="note">
+        단, 나중에 merge token을 추가할 때도 오늘 만든 원칙은 그대로 유지됩니다.
+        decode는 항상 “token ID를 byte 배열로 펼치고, 마지막에 UTF-8 decode”하는 함수입니다.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    연결 문서: <a href="./BPE_토크나이저_학습_가이드.html">Byte-level BPE Tokenizer 구현 가이드</a>.
+    작성 기준 파일: ../src/bpe.py.
+  </footer>
+</body>
+</html>
