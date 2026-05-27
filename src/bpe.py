@@ -43,9 +43,12 @@ class BPETokenizer:
         1. 특수 토큰 4개를 고정 ID 0~3에 등록합니다.
         2. byte 0~255를 ID 4~259에 bytes([byte_value]) 형태로 등록합니다.
         """
-        self.ids = {value: key for key, value in SPECIAL_IDS.items()}
+        self.id_to_token = {value: key for key, value in SPECIAL_IDS.items()}
+        self.token_to_id = SPECIAL_IDS
         for i in range (BYTE_OFFSET, NUM_BYTES + BYTE_OFFSET):
-            self.ids = {i: bytes(i-BYTE_OFFSET)}
+            self.id_to_token = {i: bytes(i-BYTE_OFFSET)}
+            self.token_to_id = {bytes(i-BYTE_OFFSET): i}
+
 
     def get_pad_id(self):
         """padding 토큰 ID."""
@@ -112,4 +115,7 @@ class BPETokenizer:
         - merge token은 원본 byte token까지 재귀적으로 펼칩니다.
         - byte를 하나씩 decode하지 말고, 마지막에 `bytes(...).decode("utf-8")`를 한 번만 호출합니다.
         """
+        str = ids.decode("utf-8")
+        
+        return str
         raise NotImplementedError("BPETokenizer.decode를 구현하세요.")
