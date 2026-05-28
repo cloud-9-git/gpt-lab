@@ -589,8 +589,8 @@ print("BPE tokenizer smoke test passed")</code></pre>
         <li><code>_init_special_tokens</code>를 먼저 구현합니다.</li>
         <li>merge 없이도 동작하는 <code>encode</code>, <code>decode</code>를 만듭니다.</li>
         <li>한국어 문장 복원이 되는지 확인합니다. <a href="./BPE_토크나이저_roundtrip_기초.html">이 3단계만 자세히 보는 별도 문서</a></li>
-        <li><code>train</code>에서 pair count와 pair replacement를 구현합니다.</li>
-        <li>학습된 <code>merges</code>를 encode에 적용합니다.</li>
+        <li><code>train</code>에서 pair count와 pair replacement를 구현합니다. <a href="./BPE_토크나이저_train_pair_merge_encode_학습.html">이 단계 자세히 보기</a></li>
+        <li>학습된 <code>merges</code>를 encode에 적용합니다. <a href="./BPE_토크나이저_train_pair_merge_encode_학습.html#encode-merges">encode 적용 부분 보기</a></li>
         <li><code>save</code>, <code>load</code>를 구현하고 복원 후 encode/decode를 다시 확인합니다.</li>
       </ol>
 
