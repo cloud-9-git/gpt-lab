@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BPE train pair count / replacement / encode merges 학습</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #657085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 860px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a,
+    .back-link {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .back-link {
+      margin-bottom: 16px;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .note,
+    .warn,
+    .success {
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #143f6f;
+      background: var(--accent-soft);
+      border-color: #bddcff;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f2d27a;
+    }
+
+    .success {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #a9dfc9;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>BPE train: pair count, pair replacement, encode merges</h1>
+      <p>
+        이 문서는 <code>_init_special_tokens</code>와 merge 없는 encode/decode를 만든 다음 단계입니다.
+        목표는 <code>train</code>에서 자주 나오는 pair를 찾고 치환하는 방법,
+        그리고 학습된 <code>merges</code>를 <code>encode</code>에서 다시 적용하는 방법을 이해하는 것입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <a class="back-link" href="./BPE_토크나이저_학습_가이드_원본.html">원본 BPE 학습 가이드로 돌아가기</a>
+
+    <nav aria-label="문서 목차">
+      <a href="#big-picture">1. 큰 그림</a>
+      <a href="#pair-count">2. pair count</a>
+      <a href="#best-pair">3. best pair</a>
+      <a href="#replacement">4. pair replacement</a>
+      <a href="#update-vocab">5. vocabulary 갱신</a>
+      <a href="#loop">6. train 반복</a>
+      <a href="#encode-merges">7. encode에 merges 적용</a>
+      <a href="#mistakes">8. 자주 나는 실수</a>
+    </nav>
+
+    <section id="big-picture">
+      <h2>1. 큰 그림</h2>
+      <p>
+        이 단계에서 하는 일은 간단히 말하면 “자주 붙어 나오는 token ID 두 개를 하나의 새 token ID로 바꾸는 것”입니다.
+        처음에는 문자열을 UTF-8 byte로 바꾸고, 각 byte 값에 <code>BYTE_OFFSET</code>을 더해서 token ID 리스트를 만듭니다.
+      </p>
+
+      <pre><code class="language-text">문자열: "한한"
+
+"한"의 byte 값:
+[237, 149, 156]
+
+BYTE_OFFSET = 4를 더한 token ID:
+[241, 153, 160]
+
+"한한"의 처음 ids:
+[241, 153, 160, 241, 153, 160]</code></pre>
+
+      <p>
+        이 상태에서 이웃한 두 token을 계속 봅니다.
+        <code>(241, 153)</code>이 자주 나오면 새 token <code>260</code>으로 등록하고,
+        ids 안의 <code>(241, 153)</code>을 전부 <code>260</code>으로 바꿉니다.
+      </p>
+
+      <pre><code class="language-text">기존:
+[241, 153, 160, 241, 153, 160]
+
+(241, 153) -> 260
+
+치환 후:
+[260, 160, 260, 160]</code></pre>
+
+      <p>
+        그 다음 다시 pair를 셉니다. 이번에는 <code>(260, 160)</code>이 자주 보일 수 있습니다.
+        그러면 <code>(260, 160)</code>을 새 token <code>261</code>로 등록하고 다시 치환합니다.
+      </p>
+
+      <pre><code class="language-text">기존:
+[260, 160, 260, 160]
+
+(260, 160) -> 261
+
+치환 후:
+[261, 261]</code></pre>
+
+      <div class="note">
+        중요한 점은 BPE가 한 번에 세 token을 합치지 않는다는 것입니다.
+        항상 이웃한 두 token, 즉 pair만 합칩니다.
+        세 byte짜리 한글 한 글자도 pair merge가 여러 번 쌓이면서 하나의 token처럼 될 수 있습니다.
+      </div>
+    </section>
+
+    <section id="pair-count">
+      <h2>2. pair count</h2>
+      <p>
+        pair count는 현재 <code>ids</code> 리스트에서 이웃한 두 token 조합이 각각 몇 번 나오는지 세는 작업입니다.
+        <code>ids</code>는 현재 corpus를 token ID로 표현한 리스트입니다.
+      </p>
+
+      <pre><code class="language-python">ids = [10, 20, 10, 20, 30, 10, 20]</code></pre>
+
+      <p>이웃 pair를 손으로 쓰면 이렇게 됩니다.</p>
+
+      <pre><code class="language-text">(10, 20)
+(20, 10)
+(10, 20)
+(20, 30)
+(30, 10)
+(10, 20)</code></pre>
+
+      <p>빈도를 세면 이렇게 됩니다.</p>
+
+      <pre><code class="language-text">(10, 20): 3번
+(20, 10): 1번
+(20, 30): 1번
+(30, 10): 1번</code></pre>
+
+      <p>Python 코드로는 보통 이렇게 셉니다.</p>
+
+      <pre><code class="language-python">pair_counts = {}
+
+for a, b in zip(ids, ids[1:]):
+    pair = (a, b)
+    pair_counts[pair] = pair_counts.get(pair, 0) + 1</code></pre>
+
+      <p>
+        <code>zip(ids, ids[1:])</code>는 리스트를 한 칸 밀어서 나란히 보는 문법입니다.
+        <code>ids</code>는 처음부터 보고, <code>ids[1:]</code>는 두 번째 값부터 봅니다.
+      </p>
+
+      <pre><code class="language-text">ids:     [10, 20, 10, 20, 30, 10, 20]
+ids[1:]: [20, 10, 20, 30, 10, 20]
+
+zip 결과:
+(10, 20)
+(20, 10)
+(10, 20)
+(20, 30)
+(30, 10)
+(10, 20)</code></pre>
+
+      <p>
+        <code>pair_counts.get(pair, 0)</code>는 “이미 센 적 있으면 그 값을 가져오고,
+        처음 보는 pair면 0으로 시작하라”는 뜻입니다.
+      </p>
+    </section>
+
+    <section id="best-pair">
+      <h2>3. best pair</h2>
+      <p>
+        <code>best_pair</code>는 이번 반복에서 가장 많이 나온 pair입니다.
+        위 예시에서는 <code>(10, 20)</code>이 3번 나왔으므로 best pair입니다.
+      </p>
+
+      <pre><code class="language-python">best_pair = max(pair_counts, key=pair_counts.get)</code></pre>
+
+      <p>
+        이 코드는 pair 자체의 크기를 비교하는 것이 아닙니다.
+        <code>pair_counts[pair]</code>, 즉 빈도수를 기준으로 가장 큰 pair를 고릅니다.
+      </p>
+
+      <pre><code class="language-python">pair_counts = {
+    (10, 20): 3,
+    (20, 10): 1,
+    (20, 30): 1,
+    (30, 10): 1,
+}
+
+best_pair = max(pair_counts, key=pair_counts.get)
+print(best_pair)
+# (10, 20)</code></pre>
+
+      <div class="warn">
+        동률이 있을 수 있습니다. 예를 들어 두 pair가 둘 다 2번 나올 수 있습니다.
+        과제 테스트는 보통 동률 처리까지 빡빡하게 요구하지 않습니다.
+        먼저 가장 단순하게 <code>max(pair_counts, key=pair_counts.get)</code>로 구현해도 충분합니다.
+      </div>
+    </section>
+
+    <section id="replacement">
+      <h2>4. pair replacement</h2>
+      <p>
+        best pair를 골랐다면, 이제 현재 <code>ids</code> 안에 있는 그 pair를 새 token ID로 바꿉니다.
+        이 작업이 pair replacement입니다.
+      </p>
+
+      <pre><code class="language-python">ids = [10, 20, 10, 20, 30, 10, 20]
+best_pair = (10, 20)
+new_id = 260</code></pre>
+
+      <p>치환 결과는 이렇게 되어야 합니다.</p>
+
+      <pre><code class="language-text">기존:
+[10, 20, 10, 20, 30, 10, 20]
+
+(10, 20)을 260으로 치환:
+[260, 260, 30, 260]</code></pre>
+
+      <p>코드는 이런 모양입니다.</p>
+
+      <pre><code class="language-python">new_ids = []
+i = 0
+
+while i &lt; len(ids):
+    if i &lt; len(ids) - 1 and (ids[i], ids[i + 1]) == best_pair:
+        new_ids.append(new_id)
+        i += 2
+    else:
+        new_ids.append(ids[i])
+        i += 1</code></pre>
+
+      <p>
+        여기서 <code>i += 2</code>가 중요합니다.
+        pair가 일치했다는 것은 <code>ids[i]</code>와 <code>ids[i + 1]</code> 두 token을 새 token 하나로 바꿨다는 뜻입니다.
+        두 token을 이미 사용했으므로 다음 검사는 두 칸 뒤에서 시작해야 합니다.
+      </p>
+
+      <p>
+        반대로 pair가 일치하지 않으면 현재 token 하나만 그대로 옮깁니다.
+        이때는 하나만 사용했으므로 <code>i += 1</code>입니다.
+      </p>
+
+      <h3>겹치는 pair는 어떻게 되나</h3>
+      <p>
+        예를 들어 <code>ids = [10, 10, 10]</code>, <code>best_pair = (10, 10)</code>이라고 해봅시다.
+        왼쪽부터 보면 첫 번째와 두 번째 <code>10</code>이 pair가 되어 새 token으로 바뀝니다.
+        그 다음에는 두 칸 이동했으므로 마지막 <code>10</code>만 남습니다.
+      </p>
+
+      <pre><code class="language-text">ids = [10, 10, 10]
+best_pair = (10, 10)
+new_id = 260
+
+결과:
+[260, 10]</code></pre>
+
+      <p>
+        이것이 BPE replacement에서 일반적으로 기대하는 동작입니다.
+        같은 위치의 token을 두 번 겹쳐서 사용하지 않습니다.
+      </p>
+    </section>
+
+    <section id="update-vocab">
+      <h2>5. vocabulary와 merges 갱신</h2>
+      <p>
+        best pair를 새 token으로 쓰려면 세 군데를 갱신해야 합니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>자료구조</th>
+            <th>넣을 내용</th>
+            <th>왜 필요한가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>self.id_to_token</code></td>
+            <td><code>new_id -> best_pair</code></td>
+            <td>decode할 때 새 token을 다시 펼치기 위해 필요</td>
+          </tr>
+          <tr>
+            <td><code>self.token_to_id</code></td>
+            <td><code>best_pair -> new_id</code></td>
+            <td>encode할 때 pair를 보고 새 ID를 찾기 위해 필요</td>
+          </tr>
+          <tr>
+            <td><code>self.merges</code></td>
+            <td><code>best_pair</code>를 append</td>
+            <td>encode가 merge rule을 학습 순서대로 적용하기 위해 필요</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <pre><code class="language-python">new_id = len(self.id_to_token)
+
+self.id_to_token[new_id] = best_pair
+self.token_to_id[best_pair] = new_id
+self.merges.append(best_pair)</code></pre>
+
+      <p>
+        처음 vocabulary 크기가 260개라면 <code>len(self.id_to_token)</code>은 260입니다.
+        그래서 첫 merge token ID는 260이 됩니다.
+        그 다음에는 vocabulary 크기가 261이므로 다음 merge token ID는 261이 됩니다.
+      </p>
+
+      <pre><code class="language-text">초기:
+0~3     특수 token
+4~259   byte token
+
+첫 merge:
+260 -> best_pair
+
+두 번째 merge:
+261 -> 다음 best_pair</code></pre>
+    </section>
+
+    <section id="loop">
+      <h2>6. train 반복 전체 모양</h2>
+      <p>
+        <code>train</code>은 pair count, best pair 선택, vocabulary 갱신, pair replacement를 반복합니다.
+        반복은 목표 vocabulary 크기에 도달하거나, 더 이상 pair가 없을 때 멈춥니다.
+      </p>
+
+      <pre><code class="language-python">def train(self, corpus: str):
+    self._init_special_tokens()
+
+    ids = [BYTE_OFFSET + b for b in corpus.encode("utf-8")]
+
+    while len(self.id_to_token) &lt; self.vocab_size:
+        pair_counts = {}
+
+        for a, b in zip(ids, ids[1:]):
+            pair = (a, b)
+            pair_counts[pair] = pair_counts.get(pair, 0) + 1
+
+        if not pair_counts:
+            break
+
+        best_pair = max(pair_counts, key=pair_counts.get)
+        new_id = len(self.id_to_token)
+
+        self.id_to_token[new_id] = best_pair
+        self.token_to_id[best_pair] = new_id
+        self.merges.append(best_pair)
+
+        new_ids = []
+        i = 0
+        while i &lt; len(ids):
+            if i &lt; len(ids) - 1 and (ids[i], ids[i + 1]) == best_pair:
+                new_ids.append(new_id)
+                i += 2
+            else:
+                new_ids.append(ids[i])
+                i += 1
+
+        ids = new_ids</code></pre>
+
+      <div class="note">
+        위 코드는 전체 방향을 보여주는 학습용 형태입니다.
+        실제 구현에서는 helper 함수를 빼도 되고, 그대로 함수 안에 작성해도 됩니다.
+        중요한 것은 매 반복마다 <code>ids</code>가 새로 치환된 리스트로 바뀐다는 점입니다.
+      </div>
+    </section>
+
+    <section id="encode-merges">
+      <h2>7. 학습된 merges를 encode에 적용하기</h2>
+      <p>
+        <code>train</code>이 끝나면 <code>self.merges</code>에는 학습된 pair들이 순서대로 들어 있습니다.
+        <code>encode</code>는 새 문자열을 처음에는 byte token ID로 바꾼 뒤,
+        이 <code>self.merges</code>를 처음부터 끝까지 순서대로 적용합니다.
+      </p>
+
+      <pre><code class="language-python">ids = [BYTE_OFFSET + b for b in text.encode("utf-8")]
+
+for pair in self.merges:
+    new_id = self.token_to_id[pair]
+    ids = replace_pair(ids, pair, new_id)</code></pre>
+
+      <p>
+        여기서 <code>replace_pair</code>는 앞에서 본 pair replacement 로직과 같습니다.
+        train에서 best pair를 치환하던 코드와 encode에서 learned merge를 치환하는 코드는 거의 같습니다.
+      </p>
+
+      <h3>왜 순서대로 적용해야 하나</h3>
+      <p>
+        예를 들어 merges가 이렇게 있다고 합시다.
+      </p>
+
+      <pre><code class="language-python">self.merges = [
+    (241, 153),
+    (260, 160),
+]
+
+self.token_to_id[(241, 153)] = 260
+self.token_to_id[(260, 160)] = 261</code></pre>
+
+      <p>
+        <code>"한"</code>을 byte token ID로 바꾸면 처음에는 이렇게 됩니다.
+      </p>
+
+      <pre><code class="language-text">[241, 153, 160]</code></pre>
+
+      <p>첫 번째 merge rule을 적용합니다.</p>
+
+      <pre><code class="language-text">(241, 153) -> 260
+
+[241, 153, 160]
+-> [260, 160]</code></pre>
+
+      <p>두 번째 merge rule을 적용합니다.</p>
+
+      <pre><code class="language-text">(260, 160) -> 261
+
+[260, 160]
+-> [261]</code></pre>
+
+      <p>
+        만약 순서를 무시하고 <code>(260, 160)</code>을 먼저 찾으려고 하면,
+        처음 ids에는 아직 <code>260</code>이 없습니다.
+        그래서 두 번째 rule이 적용될 수 없습니다.
+        이 때문에 <code>self.merges</code>는 반드시 학습된 순서대로 적용해야 합니다.
+      </p>
+
+      <h3>encode 전체 모양</h3>
+      <pre><code class="language-python">def encode(self, text: str, add_bos_eos: bool = False) -> list[int]:
+    if not self.id_to_token:
+        self._init_special_tokens()
+
+    ids = [BYTE_OFFSET + b for b in text.encode("utf-8")]
+
+    for pair in self.merges:
+        if pair not in self.token_to_id:
+            continue
+
+        new_id = self.token_to_id[pair]
+
+        new_ids = []
+        i = 0
+        while i &lt; len(ids):
+            if i &lt; len(ids) - 1 and (ids[i], ids[i + 1]) == pair:
+                new_ids.append(new_id)
+                i += 2
+            else:
+                new_ids.append(ids[i])
+                i += 1
+
+        ids = new_ids
+
+    if add_bos_eos:
+        ids = [self.get_bos_id()] + ids + [self.get_eos_id()]
+
+    return ids</code></pre>
+
+      <div class="success">
+        핵심은 <code>encode</code>가 새로 pair 빈도를 세지 않는다는 점입니다.
+        pair 빈도를 세는 일은 <code>train</code>에서 끝났습니다.
+        <code>encode</code>는 이미 학습된 <code>self.merges</code>를 그대로 적용만 합니다.
+      </div>
+    </section>
+
+    <section id="mistakes">
+      <h2>8. 자주 나는 실수</h2>
+
+      <h3>1. train에서 ids를 갱신하지 않음</h3>
+      <p>
+        pair replacement로 <code>new_ids</code>를 만들었으면 마지막에 반드시 <code>ids = new_ids</code>를 해야 합니다.
+        그래야 다음 반복에서 치환된 token ID 리스트를 기준으로 다시 pair를 셉니다.
+      </p>
+
+      <h3>2. merges에 new_id를 넣음</h3>
+      <p>
+        <code>self.merges</code>에는 새 ID가 아니라 pair를 넣습니다.
+      </p>
+
+      <pre><code class="language-python"># 맞음
+self.merges.append(best_pair)
+
+# 헷갈리기 쉬움
+self.merges.append(new_id)</code></pre>
+
+      <p>
+        encode는 <code>self.merges</code>를 보면서 “어떤 pair를 찾아야 하는지” 알아야 합니다.
+        그래서 <code>260</code> 같은 결과 ID가 아니라 <code>(241, 153)</code> 같은 pair가 들어가야 합니다.
+      </p>
+
+      <h3>3. token_to_id에 list를 key로 씀</h3>
+      <p>dict key로 list는 쓸 수 없습니다. pair는 tuple로 저장해야 합니다.</p>
+
+      <pre><code class="language-python"># 틀림
+self.token_to_id[[241, 153]] = 260
+
+# 맞음
+self.token_to_id[(241, 153)] = 260</code></pre>
+
+      <h3>4. encode에서 merge를 한 번만 적용함</h3>
+      <p>
+        merge rule이 여러 개면 전부 순서대로 적용해야 합니다.
+        한 번만 적용하면 <code>[241, 153, 160]</code>이 <code>[260, 160]</code>까지만 가고,
+        <code>[261]</code>까지 줄어들지 못합니다.
+      </p>
+
+      <h3>5. encode에서 다시 best_pair를 찾음</h3>
+      <p>
+        encode는 학습이 아닙니다.
+        새 문장을 encode할 때 pair 빈도를 다시 세서 새로운 best pair를 만들면 안 됩니다.
+        encode는 train/load로 이미 만들어진 <code>self.merges</code>를 적용하는 함수입니다.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    연결 문서: <a href="./BPE_토크나이저_학습_가이드_원본.html">Byte-level BPE Tokenizer 구현 가이드 원본</a>.
+    작성 기준 파일: ../src/bpe.py.
+  </footer>
+</body>
+</html>
