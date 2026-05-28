@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dataset / InputEmbedding 구현 학습</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #657085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 860px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .note,
+    .warn,
+    .success {
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #143f6f;
+      background: var(--accent-soft);
+      border-color: #bddcff;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f2d27a;
+    }
+
+    .success {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #a9dfc9;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>Dataset / InputEmbedding 구현 학습</h1>
+      <p>
+        <code>src/dataset.py</code>와 <code>src/embeddings.py</code>를 구현하기 위한 문서입니다.
+        GPT 사전 학습용 input/target 쌍을 만들고, token ID를 Transformer 입력 벡터로 바꾸는 흐름을 다룹니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">1. 목표</a>
+      <a href="#next-token">2. 다음 토큰 예측</a>
+      <a href="#dataset-length">3. Dataset 길이</a>
+      <a href="#getitem">4. __getitem__</a>
+      <a href="#dataloader">5. DataLoader</a>
+      <a href="#embedding">6. InputEmbedding</a>
+      <a href="#tests">7. 테스트 기준</a>
+      <a href="#mistakes">8. 자주 나는 실수</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 목표</h2>
+      <p>
+        BPE tokenizer가 문장을 token ID 리스트로 바꿔주면, 그 다음에는 이 긴 리스트를
+        GPT가 학습할 수 있는 작은 조각으로 잘라야 합니다. 이 역할을 <code>GPTDataset</code>이 합니다.
+      </p>
+      <p>
+        그리고 Dataset이 만든 token ID tensor는 아직 그냥 정수 번호입니다.
+        Transformer는 정수 번호를 바로 계산하지 않고, 각 token ID를 벡터로 바꿔서 사용합니다.
+        이 역할을 <code>InputEmbedding</code>이 합니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>파일</th>
+            <th>구현 대상</th>
+            <th>역할</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>src/dataset.py</code></td>
+            <td><code>GPTDataset</code>, <code>create_dataloader</code></td>
+            <td>token ID 리스트를 input/target 학습 샘플과 batch로 만듦</td>
+          </tr>
+          <tr>
+            <td><code>src/embeddings.py</code></td>
+            <td><code>InputEmbedding</code></td>
+            <td>token ID를 token embedding + position embedding 벡터로 바꿈</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="next-token">
+      <h2>2. GPT의 다음 토큰 예측</h2>
+      <p>
+        GPT는 현재 token들을 보고 다음 token을 맞히도록 학습합니다.
+        그래서 input과 target은 거의 같지만, target이 input보다 한 칸 뒤에 있습니다.
+      </p>
+
+      <pre><code class="language-text">token_ids = [10, 11, 12, 13]
+context_length = 3
+
+input  = [10, 11, 12]
+target = [11, 12, 13]</code></pre>
+
+      <p>
+        모델 입장에서는 이런 문제가 됩니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>현재 위치 input</th>
+            <th>맞혀야 하는 target</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>10</code></td>
+            <td><code>11</code></td>
+          </tr>
+          <tr>
+            <td><code>11</code></td>
+            <td><code>12</code></td>
+          </tr>
+          <tr>
+            <td><code>12</code></td>
+            <td><code>13</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="success">
+        이 단계의 핵심 검사는 <code>target[:-1] == input[1:]</code>입니다.
+        target이 input보다 한 칸 뒤라는 뜻입니다.
+      </div>
+    </section>
+
+    <section id="dataset-length">
+      <h2>3. GPTDataset 길이 계산</h2>
+      <p>
+        Dataset의 길이는 만들 수 있는 학습 샘플 개수입니다.
+        input 길이가 <code>context_length</code>이고 target도 같은 길이입니다.
+        그런데 target은 input보다 한 칸 뒤에서 끝나므로, 샘플 하나를 만들려면 원본 token이
+        <code>context_length + 1</code>개 필요합니다.
+      </p>
+
+      <pre><code class="language-text">token_ids = [0, 1, 2, 3, 4]
+context_length = 4
+
+input  = [0, 1, 2, 3]
+target = [1, 2, 3, 4]
+
+필요한 원본 token 개수 = 5 = context_length + 1</code></pre>
+
+      <h3>stride</h3>
+      <p>
+        <code>stride</code>는 다음 샘플로 넘어갈 때 시작 위치를 몇 칸 옮길지 정합니다.
+        <code>stride=1</code>이면 샘플이 많이 겹치고, <code>stride=context_length</code>이면 거의 겹치지 않습니다.
+      </p>
+
+      <pre><code class="language-text">token_ids = list(range(12))
+context_length = 4
+stride = 4
+
+sample 0:
+input  = [0, 1, 2, 3]
+target = [1, 2, 3, 4]
+
+sample 1:
+input  = [4, 5, 6, 7]
+target = [5, 6, 7, 8]</code></pre>
+
+      <p>
+        테스트에서 기대하는 길이 공식은 아래와 같습니다.
+      </p>
+
+      <pre><code class="language-python">expected = (len(token_ids) - context_length - 1) // stride + 1</code></pre>
+
+      <p>
+        token 수가 너무 적으면 음수가 나올 수 있으므로, 실제 구현에서는 <code>max(0, ...)</code>로 감싸면 안전합니다.
+      </p>
+
+      <pre><code class="language-python">available = len(token_ids) - context_length - 1
+self._length = max(0, available // self.stride + 1)</code></pre>
+    </section>
+
+    <section id="getitem">
+      <h2>4. <code>__getitem__</code> 구현</h2>
+      <p>
+        <code>__getitem__(idx)</code>는 idx번째 input/target 쌍을 반환합니다.
+        시작 위치는 <code>idx * stride</code>입니다.
+      </p>
+
+      <pre><code class="language-python">start = idx * self.stride
+end = start + self.context_length
+
+input_ids = self.token_ids[start:end]
+target_ids = self.token_ids[start + 1:end + 1]</code></pre>
+
+      <p>
+        반환할 때는 Python list가 아니라 PyTorch tensor로 바꿉니다.
+        token ID는 embedding에 들어가는 정수 index이므로 dtype은 <code>torch.long</code>이어야 합니다.
+      </p>
+
+      <pre><code class="language-python">return (
+    torch.tensor(input_ids, dtype=torch.long),
+    torch.tensor(target_ids, dtype=torch.long),
+)</code></pre>
+
+      <div class="note">
+        <code>torch.long</code>은 정수 ID용 dtype입니다.
+        <code>nn.Embedding</code>은 float tensor가 아니라 정수 index tensor를 입력으로 받습니다.
+      </div>
+    </section>
+
+    <section id="dataloader">
+      <h2>5. <code>create_dataloader</code></h2>
+      <p>
+        Dataset은 샘플 하나를 꺼내는 객체입니다.
+        DataLoader는 Dataset에서 여러 샘플을 모아 batch로 만들어 줍니다.
+      </p>
+
+      <pre><code class="language-python">dataset = GPTDataset(token_ids, context_length, stride=stride)
+
+loader = DataLoader(
+    dataset,
+    batch_size=batch_size,
+    shuffle=shuffle,
+    drop_last=drop_last,
+    num_workers=num_workers,
+)</code></pre>
+
+      <p>
+        예를 들어 샘플 하나의 input shape가 <code>(16,)</code>이고 <code>batch_size=4</code>이면,
+        DataLoader가 반환하는 input batch shape는 <code>(4, 16)</code>입니다.
+      </p>
+    </section>
+
+    <section id="embedding">
+      <h2>6. InputEmbedding</h2>
+      <p>
+        Dataset/DataLoader가 만든 batch는 shape가 <code>(batch_size, seq_len)</code>인 token ID tensor입니다.
+        하지만 Transformer는 token ID 숫자 자체가 아니라 벡터를 입력으로 받습니다.
+      </p>
+
+      <h3>token embedding</h3>
+      <p>
+        token ID를 <code>emb_dim</code> 차원의 벡터로 바꿉니다.
+      </p>
+
+      <pre><code class="language-python">self.token_embedding = nn.Embedding(vocab_size, emb_dim)</code></pre>
+
+      <h3>position embedding</h3>
+      <p>
+        GPT는 token의 순서도 알아야 합니다.
+        같은 token이라도 0번째 위치인지, 5번째 위치인지에 따라 문맥이 다르기 때문입니다.
+      </p>
+
+      <pre><code class="language-python">self.position_embedding = nn.Embedding(context_length, emb_dim)</code></pre>
+
+      <h3>forward 흐름</h3>
+      <pre><code class="language-python">batch_size, seq_len = x.shape
+
+tok_emb = self.token_embedding(x)
+# shape: (batch_size, seq_len, emb_dim)
+
+pos_ids = torch.arange(seq_len, device=x.device)
+pos_emb = self.position_embedding(pos_ids)
+# shape: (seq_len, emb_dim)
+
+out = tok_emb + pos_emb
+out = self.dropout(out)
+# shape: (batch_size, seq_len, emb_dim)</code></pre>
+
+      <p>
+        <code>tok_emb</code>는 batch 차원이 있고 <code>pos_emb</code>는 batch 차원이 없습니다.
+        그래도 PyTorch가 broadcasting으로 모든 batch에 같은 position embedding을 더해줍니다.
+      </p>
+
+      <div class="success">
+        테스트가 확인하는 최종 출력 shape는 <code>(batch_size, seq_len, emb_dim)</code>입니다.
+      </div>
+    </section>
+
+    <section id="tests">
+      <h2>7. 테스트 기준</h2>
+      <p>실행 명령:</p>
+
+      <pre><code class="language-bash">pytest tests/test_dataset.py -v</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>테스트</th>
+            <th>확인 내용</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>test_dataset_length</code></td>
+            <td>token 개수, context_length, stride로 샘플 개수를 제대로 계산하는지 확인</td>
+          </tr>
+          <tr>
+            <td><code>test_dataset_getitem_shape</code></td>
+            <td>input/target이 <code>(context_length,)</code>이고 target이 한 칸 뒤인지 확인</td>
+          </tr>
+          <tr>
+            <td><code>test_dataloader_batch_shape</code></td>
+            <td>DataLoader batch shape가 <code>(batch_size, context_length)</code>인지 확인</td>
+          </tr>
+          <tr>
+            <td><code>test_input_embedding_shape</code></td>
+            <td>InputEmbedding 출력 shape가 <code>(batch_size, seq_len, emb_dim)</code>인지 확인</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="mistakes">
+      <h2>8. 자주 나는 실수</h2>
+
+      <h3>target을 input과 똑같이 만드는 실수</h3>
+      <pre><code class="language-python"># 틀림
+target_ids = self.token_ids[start:end]
+
+# 맞음
+target_ids = self.token_ids[start + 1:end + 1]</code></pre>
+
+      <h3>길이 계산에서 <code>-1</code>을 빼먹는 실수</h3>
+      <p>
+        target까지 만들려면 input보다 token 하나가 더 필요합니다.
+      </p>
+
+      <pre><code class="language-python">(len(token_ids) - context_length - 1) // stride + 1</code></pre>
+
+      <h3>Tensor dtype을 float로 만드는 실수</h3>
+      <pre><code class="language-python">torch.tensor(input_ids, dtype=torch.long)</code></pre>
+
+      <h3>position id를 CPU에 만드는 실수</h3>
+      <p>
+        나중에 GPU 학습에서 device mismatch가 날 수 있으므로 <code>x.device</code>를 사용합니다.
+      </p>
+
+      <pre><code class="language-python">pos_ids = torch.arange(seq_len, device=x.device)</code></pre>
+    </section>
+  </main>
+
+  <footer>
+    작성 기준 파일: ../../src/dataset.py, ../../src/embeddings.py.
+  </footer>
+</body>
+</html>
