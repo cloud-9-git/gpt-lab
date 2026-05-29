@@ -43,11 +43,12 @@ class InputEmbedding(nn.Module):
             x: (batch_size, seq_len) token IDs
 
         Returns:
+            (한번에 몇개의 문장을 동시에, 문장 하나의 토큰이 몇개, 입력 차원)
             (batch_size, seq_len, emb_dim)
         """
         # shape[0] = 행 크기 반환 (batch_size), shape[1] = 열 크기 반환 (seq_len)
         seq_len = x.shape[1]
-        # 임베딩 벡터에 넣을 벡터 크기
+        # 임베딩 벡터에 넣을 벡터 크기 (위치 임베딩 - 위치 번호 배열이 필요함)
         positions = torch.arange(seq_len)
 
         # 행렬 모양이 달라보이지만 파이토치가 자동으로 pos_emb에 tok_emb 배치를 복사해서 더해줌으로써 차원 맞춤 (브로드캐스팅)
