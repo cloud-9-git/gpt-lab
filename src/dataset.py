@@ -23,7 +23,6 @@ class GPTDataset(Dataset):
         self.token_ids = token_ids
         self.context_length = context_length
         self.stride = stride if stride is not None else context_length
-        # TODO: 만들 수 있는 학습 샘플 개수를 self._length에 저장하세요.
         self.input_ids = []   # 슬라이딩 윈도우로 잘라낸 샘플들을 담을 빈 리스트 2개
         self._target_ids = []
 
