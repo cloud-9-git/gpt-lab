@@ -40,10 +40,9 @@ class MultiHeadAttention(nn.Module):
         # 왜? head를 합친 뒤 다음 블록이 받을 수 있는 형태로 맞춰야 하기 때문.
 
         # dropout: attention weight에 적용할 regularization 정의
-        self.qkv_proj = nn.Linear(d_model, 3 * d_model, bias=qkv_bias)
-        self.drop_out = nn.Dropout(drop_rate)
-        
-        raise NotImplementedError("MultiHeadAttention.__init__을 구현하세요.")
+        self.out_proj = nn.Linear(d_model, 3 * d_model, bias=qkv_bias)
+        self.dropout = nn.Dropout(drop_rate)
+
 
     def forward(
         self,
@@ -64,28 +63,27 @@ class MultiHeadAttention(nn.Module):
         # shape: (B, T, 3 * d_model)
         # 왜? 입력을 attention 계산용 세 표현(query, key, value)으로 바꿔야 하고,
         # 한 번의 projection으로 Q/K/V를 함께 계산하면 효율적이고 구현도 단순하기 때문.
-        qkv = self.qkv_proj(x)
+        qkv = self.out_proj(x)
 
         # 2. qkv를 Q, K, V로 나눈다.
         # qkv.chunk(3, dim=-1) 사용.
         # shape: q, k, v 각각 (B, T, d_model)
         # 왜? Q, K, V는 이후 역할이 다르므로 분리해서 따로 계산해야 하기 때문.
-        q, k, v = qkv.chunk(3, dim=-1)
-        b, num_tokens, d_in = x.shape
+        queries, keys, values = qkv.chunk(3, dim=-1)
+        b, num_tokens, self.d_model = x.shape
 
         # 3. 각 텐서를 multi-head 형태로 바꾼다.
         # (B, T, d_model) -> (B, T, n_heads, head_dim) -> (B, n_heads, T, head_dim)
         # 왜? 여러 head가 서로 다른 관점으로 attention을 보게 하려면
         # d_model을 head 단위로 나눠서 병렬 계산해야 하기 때문.
-        k = k.view(b, num_tokens, self.n_heads, self.head_dim)
-        v = v.view(b, num_tokens, self.n_heads, self.head_dim)
-        q = q.view(b, num_tokens, self.n_heads, self.head_dim)
+        keys = keys.view(b, num_tokens, self.n_heads, self.head_dim)
+        values = values.view(b, num_tokens, self.n_heads, self.head_dim)
+        queries = queries.view(b, num_tokens, self.n_heads, self.head_dim)
 
         keys = keys.transpose(1, 2)
         queries = queries.transpose(1, 2)
         values = values.transpose(1, 2)
         
-
         # 4. attention score를 계산한다.
         # scores = q @ k.transpose(-2, -1)
         # shape: (B, n_heads, T, T)
@@ -110,7 +108,7 @@ class MultiHeadAttention(nn.Module):
         # 정의한 dropout은 일반적으로 attention weight에 적용한다.
         # 왜? score를 확률처럼 해석 가능한 가중치로 바꿔야 어떤 토큰을 얼마나 참고할지 정할 수 있기 때문.
         
-        attn_weights = torch.softmax(attn_scores / k.shape[-1] ** 0.5, dim = -1)
+        attn_weights = torch.softmax(attn_scores / keys.shape[-1] ** 0.5, dim = -1)
         attn_weights = self.dropout(attn_weights)
 
         # 7. attention weight와 V를 곱해 context를 만든다.
@@ -142,4 +140,4 @@ class MultiHeadAttention(nn.Module):
         if return_attention_weights == False:
             return self.d_out
         if return_attention_weights == True:
-            return context_vec
+            return (self.d_out, attn_weights)
