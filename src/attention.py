@@ -71,11 +71,20 @@ class MultiHeadAttention(nn.Module):
         # shape: q, k, v 각각 (B, T, d_model)
         # 왜? Q, K, V는 이후 역할이 다르므로 분리해서 따로 계산해야 하기 때문.
         q, k, v = qkv.chunk(3, dim=-1)
+        b, num_tokens, d_in = x.shape
 
         # 3. 각 텐서를 multi-head 형태로 바꾼다.
         # (B, T, d_model) -> (B, T, n_heads, head_dim) -> (B, n_heads, T, head_dim)
         # 왜? 여러 head가 서로 다른 관점으로 attention을 보게 하려면
         # d_model을 head 단위로 나눠서 병렬 계산해야 하기 때문.
+        k = k.view(b, num_tokens, self.n_heads, self.head_dim)
+        v = v.view(b, num_tokens, self.n_heads, self.head_dim)
+        q = q.view(b, num_tokens, self.n_heads, self.head_dim)
+
+        keys = keys.transpose(1, 2)
+        queries = queries.transpose(1, 2)
+        values = values.transpose(1, 2)
+        
 
         # 4. attention score를 계산한다.
         # scores = q @ k.transpose(-2, -1)
@@ -85,35 +94,52 @@ class MultiHeadAttention(nn.Module):
         # scaling을 하지 않으면 score 분산이 커져 softmax가 과도하게 뾰족해지고
         # gradient가 불안정해질 수 있기 때문.
 
+        attn_scores = queries @ keys.transpose(2, 3)
+
         # 5. causal mask를 적용한다.
         # causal_mask=True이면 미래 토큰 위치를 보지 못하게 mask 처리한다.
         # (T, T) upper-triangular mask를 diagonal=1로 만들고, 가릴 위치를 -inf로 채운다.
         # mask는 x.device 위에 만들고, (B, n_heads, T, T)에 broadcast되게 둔다.
         # 왜? GPT는 다음 토큰 예측 모델이라 현재 위치가 미래 정보를 보면 안 되기 때문.
 
+        mask_bool = self.mask.bool()[:num_tokens, :num_tokens]
+        attn_scores.masked_fill_(mask_bool, -torch.inf)
+
         # 6. softmax로 attention weight를 만든다.
         # attn_weights = torch.softmax(scores, dim=-1)
         # 정의한 dropout은 일반적으로 attention weight에 적용한다.
         # 왜? score를 확률처럼 해석 가능한 가중치로 바꿔야 어떤 토큰을 얼마나 참고할지 정할 수 있기 때문.
+        
+        attn_weights = torch.softmax(attn_scores / k.shape[-1] ** 0.5, dim = -1)
+        attn_weights = self.dropout(attn_weights)
 
         # 7. attention weight와 V를 곱해 context를 만든다.
         # context = attn_weights @ v
         # shape: (B, n_heads, T, head_dim)
         # 왜? 각 위치의 출력 벡터를, 참고할 토큰들의 value를 가중합해서 만들기 때문.
 
+        context_vec = (attn_weights @ values).transpose(1, 2)
+
         # 8. 여러 head를 다시 합친다.
         # (B, n_heads, T, head_dim) -> (B, T, n_heads, head_dim) -> (B, T, d_model)
         # transpose 뒤에는 contiguous().view(...) 또는 reshape(...)로 메모리 배치를 맞춘다.
         # 왜? head별로 나눠 계산한 결과를 다시 원래 hidden 차원으로 합쳐야 다음 레이어가 같은 형식의 입력을 받을 수 있기 때문.
+
+        context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out)
 
         # 9. output projection을 적용한다.
         # out = self.out_proj(context)
         # output dropout을 별도로 둘 수도 있지만, 이 템플릿에서는 attention weight dropout만으로도 충분하다.
         # 왜? 합쳐진 head 정보를 다시 모델 차원으로 정리해서 다음 블록으로 넘기기 좋은 표현으로 만들기 때문.
 
+        context_vec = self.out_proj(context_vec)
+
         # 10. 반환 형식을 처리한다.
         # return_attention_weights=False면 out만 반환한다.
         # True면 (out, attn_weights)를 반환한다.
         # 왜? 기본적으로는 attention 출력만 있으면 되지만, 디버깅이나 시각화를 위해 attention weight도 확인할 수 있어야 하기 때문.
-        
-        raise NotImplementedError("MultiHeadAttention.forward를 구현하세요.")
+
+        if return_attention_weights == False:
+            return self.d_out
+        if return_attention_weights == True:
+            return context_vec
