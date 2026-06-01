@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPT 모델 Python 문법</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #667085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 880px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main { padding: 28px 0 56px; }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 10px 0; }
+
+    hr {
+      height: 1px;
+      margin: 18px 0;
+      background: var(--line);
+      border: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>GPT 모델 Python/PyTorch 문법</h1>
+      <p>
+        <code>src/model.py</code>의 GPT 모델 구성 요소를 구현할 때 필요한 Python과 PyTorch 문법을
+        과제 코드 기준으로 정리한 HTML 문서입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#1-import-torch-import-torchnn-as-nn">1. import torch, import torch.nn as nn</a>
+      <a href="#2-nnmodule-상속">2. nn.Module 상속</a>
+      <a href="#3-__init__과-forward">3. __init__과 forward</a>
+      <a href="#4-super__init__">4. super().__init__()</a>
+      <a href="#5-self">5. self</a>
+      <a href="#6-타입-힌트-문법">6. 타입 힌트 문법</a>
+      <a href="#7-nnparameter">7. nn.Parameter</a>
+      <a href="#8-tensor의-mean-var">8. tensor의 mean, var</a>
+      <a href="#9-broadcasting">9. broadcasting</a>
+      <a href="#10-torchsqrt-torchtanh-torchpow">10. torch.sqrt, torch.tanh, torch.pow</a>
+      <a href="#11-devicexdevice">11. device=x.device</a>
+      <a href="#12-nnlinear">12. nn.Linear</a>
+      <a href="#13-nnsequential">13. nn.Sequential</a>
+      <a href="#14-nndropout">14. nn.Dropout</a>
+      <a href="#15-nnmodulelist">15. nn.ModuleList</a>
+      <a href="#16-list-comprehension">16. list comprehension</a>
+      <a href="#17-for-반복문">17. for 반복문</a>
+      <a href="#18-config-dict-문법">18. config dict 문법</a>
+      <a href="#19-residual-connection의-">19. residual connection의 +</a>
+      <a href="#20-tuple-반환">20. tuple 반환</a>
+      <a href="#21-isinstance">21. isinstance</a>
+      <a href="#22-import-torchnnfunctional-as-f">22. import torch.nn.functional as F</a>
+      <a href="#23-reshape">23. reshape</a>
+      <a href="#24-size-1">24. size(-1)</a>
+      <a href="#25-fcross_entropy">25. F.cross_entropy</a>
+      <a href="#26-slicing-idx--context_size">26. slicing: idx[:, -context_size:]</a>
+      <a href="#27-slicing-logits--1-">27. slicing: logits[:, -1, :]</a>
+      <a href="#28-torchargmax">28. torch.argmax</a>
+      <a href="#29-torchcat">29. torch.cat</a>
+      <a href="#30-rangemax_new_tokens">30. range(max_new_tokens)</a>
+      <a href="#31-notimplementederror-지우기">31. NotImplementedError 지우기</a>
+      <a href="#32-테스트-실행">32. 테스트 실행</a>
+    </nav>
+
+    <section class="intro">
+      <h1>GPT 모델 구성 요소 구현을 위한 Python/PyTorch 문법 문서</h1>
+      <p>대상 과제:</p>
+      <pre><code class="language-text">4. GPT 모델 구성 요소
+파일: src/model.py
+테스트: pytest tests/test_model.py -v</code></pre>
+      <p>이 문서는 GPT 개념 설명이 아니라, <code>src/model.py</code>를 구현할 때 필요한 Python/PyTorch 문법을 정리한 문서입니다.</p>
+      <p>구현 대상:</p>
+      <pre><code class="language-text">LayerNorm
+GELU
+FeedForward
+TransformerBlock
+GPTModel
+generate_text_simple</code></pre>
+      <hr>
+    </section>
+    <section id="1-import-torch-import-torchnn-as-nn">
+      <h2>1. <code>import torch</code>, <code>import torch.nn as nn</code></h2>
+      <p><code>torch</code>는 tensor 계산을 위한 라이브러리입니다.</p>
+      <pre><code class="language-python">import torch</code></pre>
+      <p><code>torch.nn</code>은 neural network layer들을 모아둔 모듈입니다.</p>
+      <pre><code class="language-python">import torch.nn as nn</code></pre>
+      <p>그래서 아래처럼 씁니다.</p>
+      <pre><code class="language-python">nn.Module
+nn.Linear
+nn.Dropout
+nn.Parameter
+nn.ModuleList
+nn.Sequential</code></pre>
+      <p><code>as nn</code>은 긴 이름을 짧게 줄이는 문법입니다.</p>
+      <pre><code class="language-python">torch.nn.Linear</code></pre>
+      <p>대신:</p>
+      <pre><code class="language-python">nn.Linear</code></pre>
+      <p>라고 쓸 수 있습니다.</p>
+      <hr>
+    </section>
+    <section id="2-nnmodule-상속">
+      <h2>2. <code>nn.Module</code> 상속</h2>
+      <p>PyTorch에서 모델 부품은 보통 <code>nn.Module</code>을 상속해서 만듭니다.</p>
+      <pre><code class="language-python">class LayerNorm(nn.Module):
+    ...</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">LayerNorm은 PyTorch 모델 부품이다.</code></pre>
+      <p><code>nn.Module</code>을 상속하면 좋은 점:</p>
+      <pre><code class="language-text">1. 내부 layer와 parameter를 PyTorch가 자동으로 추적합니다.
+2. model.parameters()로 학습할 값들을 찾을 수 있습니다.
+3. model.train(), model.eval() 같은 기능을 쓸 수 있습니다.
+4. forward()를 정의하면 객체를 함수처럼 호출할 수 있습니다.</code></pre>
+      <p>예:</p>
+      <pre><code class="language-python">ln = LayerNorm(64)
+out = ln(x)</code></pre>
+      <p>겉으로는 <code>ln(x)</code>처럼 보이지만, 내부적으로는:</p>
+      <pre><code class="language-python">ln.forward(x)</code></pre>
+      <p>가 호출됩니다.</p>
+      <hr>
+    </section>
+    <section id="3-__init__과-forward">
+      <h2>3. <code>__init__</code>과 <code>forward</code></h2>
+      <p>PyTorch 모듈에서는 보통 두 메서드가 중요합니다.</p>
+      <pre><code class="language-python">def __init__(self, ...):
+    ...
+
+def forward(self, x):
+    ...</code></pre>
+      <h3><code>__init__</code></h3>
+      <p>객체가 만들어질 때 한 번 실행됩니다.</p>
+      <pre><code class="language-python">ffn = FeedForward(64)</code></pre>
+      <p>이 순간 <code>FeedForward.__init__</code>이 실행됩니다.</p>
+      <p>여기서는 layer를 준비합니다.</p>
+      <pre><code class="language-python">self.net = nn.Sequential(
+    nn.Linear(d_model, 4 * d_model),
+    GELU(),
+    nn.Linear(4 * d_model, d_model),
+)</code></pre>
+      <h3><code>forward</code></h3>
+      <p>입력이 들어올 때마다 실행됩니다.</p>
+      <pre><code class="language-python">out = ffn(x)</code></pre>
+      <p>이 순간 <code>FeedForward.forward</code>가 실행됩니다.</p>
+      <p>여기서는 실제 계산을 합니다.</p>
+      <pre><code class="language-python">def forward(self, x):
+    return self.net(x)</code></pre>
+      <p>정리:</p>
+      <pre><code class="language-text">__init__: 부품 준비
+forward: 실제 계산</code></pre>
+      <hr>
+    </section>
+    <section id="4-super__init__">
+      <h2>4. <code>super().__init__()</code></h2>
+      <p><code>nn.Module</code>을 상속한 클래스의 <code>__init__</code>에서는 보통 첫 줄에 이걸 씁니다.</p>
+      <pre><code class="language-python">super().__init__()</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">부모 클래스인 nn.Module의 초기화도 실행한다.</code></pre>
+      <p>이걸 해야 PyTorch가 내부 layer와 parameter를 제대로 추적합니다.</p>
+      <p>예:</p>
+      <pre><code class="language-python">class FeedForward(nn.Module):
+    def __init__(self, d_model: int):
+        super().__init__()
+        self.fc = nn.Linear(d_model, d_model)</code></pre>
+      <p><code>super().__init__()</code> 없이 layer를 붙이면 PyTorch 모델로서 필요한 초기화가 빠질 수 있습니다.</p>
+      <hr>
+    </section>
+    <section id="5-self">
+      <h2>5. <code>self</code></h2>
+      <p><code>self</code>는 지금 만들어진 객체 자신입니다.</p>
+      <pre><code class="language-python">self.gamma = nn.Parameter(torch.ones(normalized_shape))</code></pre>
+      <p>이 말은:</p>
+      <pre><code class="language-text">이 LayerNorm 객체 안에 gamma라는 값을 저장한다.</code></pre>
+      <p>객체 바깥에서는 이렇게 접근할 수 있습니다.</p>
+      <pre><code class="language-python">ln = LayerNorm(64)
+ln.gamma</code></pre>
+      <p>모델 부품을 <code>self.xxx</code>로 저장해야 하는 이유:</p>
+      <pre><code class="language-text">PyTorch가 그 부품을 모델 안에 등록하기 때문입니다.</code></pre>
+      <p>예:</p>
+      <pre><code class="language-python">self.lm_head = nn.Linear(config[&quot;emb_dim&quot;], config[&quot;vocab_size&quot;])</code></pre>
+      <p>이렇게 해야 <code>lm_head.weight</code>가 학습 대상 parameter로 잡힙니다.</p>
+      <hr>
+    </section>
+    <section id="6-타입-힌트-문법">
+      <h2>6. 타입 힌트 문법</h2>
+      <p><code>src/model.py</code>에는 이런 문법이 나옵니다.</p>
+      <pre><code class="language-python">def forward(self, x: torch.Tensor) -&gt; torch.Tensor:</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">x는 torch.Tensor일 것이다.
+반환값도 torch.Tensor일 것이다.</code></pre>
+      <p>또 이런 것도 나옵니다.</p>
+      <pre><code class="language-python">targets: torch.Tensor | None = None</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">targets는 torch.Tensor일 수도 있고 None일 수도 있다.
+기본값은 None이다.</code></pre>
+      <p><code>None</code>은 “값이 없음”을 나타내는 Python 값입니다.</p>
+      <pre><code class="language-python">if targets is None:
+    return logits</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">정답 targets가 없으면 loss를 계산하지 말고 logits만 반환한다.</code></pre>
+      <hr>
+    </section>
+    <section id="7-nnparameter">
+      <h2>7. <code>nn.Parameter</code></h2>
+      <p><code>nn.Parameter</code>는 PyTorch에게 “이 tensor는 학습되는 값이다”라고 알려주는 문법입니다.</p>
+      <p>LayerNorm에는 이런 값들이 있습니다.</p>
+      <pre><code class="language-python">self.gamma = nn.Parameter(torch.ones(normalized_shape))
+self.beta = nn.Parameter(torch.zeros(normalized_shape))</code></pre>
+      <p><code>torch.ones(normalized_shape)</code>는 전부 1인 tensor를 만듭니다.</p>
+      <pre><code class="language-python">torch.ones(4)
+# tensor([1., 1., 1., 1.])</code></pre>
+      <p><code>torch.zeros(normalized_shape)</code>는 전부 0인 tensor를 만듭니다.</p>
+      <pre><code class="language-python">torch.zeros(4)
+# tensor([0., 0., 0., 0.])</code></pre>
+      <p>그냥 tensor로 두면 optimizer가 학습 대상으로 보지 않을 수 있습니다.</p>
+      <pre><code class="language-python">self.gamma = torch.ones(normalized_shape)</code></pre>
+      <p>하지만 <code>nn.Parameter</code>로 감싸면 학습 대상이 됩니다.</p>
+      <pre><code class="language-python">self.gamma = nn.Parameter(torch.ones(normalized_shape))</code></pre>
+      <hr>
+    </section>
+    <section id="8-tensor의-mean-var">
+      <h2>8. tensor의 <code>mean</code>, <code>var</code></h2>
+      <p>LayerNorm 구현에서 평균과 분산을 구해야 합니다.</p>
+      <pre><code class="language-python">mean = x.mean(dim=-1, keepdim=True)
+var = x.var(dim=-1, keepdim=True, unbiased=False)</code></pre>
+      <p><code>dim=-1</code>은 마지막 차원을 뜻합니다.</p>
+      <p>예:</p>
+      <pre><code class="language-text">x.shape = (B, T, C)</code></pre>
+      <p>여기서 마지막 차원은 <code>C</code>입니다.</p>
+      <pre><code class="language-text">dim=-1 == C 차원</code></pre>
+      <p><code>keepdim=True</code>는 평균을 낸 차원을 없애지 말라는 뜻입니다.</p>
+      <pre><code class="language-text">x.shape    = (2, 10, 64)
+mean shape = (2, 10, 1)</code></pre>
+      <p>이렇게 해야 나중에:</p>
+      <pre><code class="language-python">x - mean</code></pre>
+      <p>이 자연스럽게 됩니다.</p>
+      <hr>
+    </section>
+    <section id="9-broadcasting">
+      <h2>9. broadcasting</h2>
+      <p>LayerNorm에서 이런 계산을 합니다.</p>
+      <pre><code class="language-python">x_norm = (x - mean) / torch.sqrt(var + self.eps)</code></pre>
+      <p>여기서 shape는:</p>
+      <pre><code class="language-text">x shape:    (2, 10, 64)
+mean shape: (2, 10, 1)
+var shape:  (2, 10, 1)</code></pre>
+      <p>차원이 완전히 같지 않은데 계산이 됩니다.</p>
+      <p>이유는 PyTorch가 마지막 크기 <code>1</code>을 자동으로 <code>64</code>칸에 맞춰 늘려서 계산하기 때문입니다.</p>
+      <p>이걸 broadcasting이라고 합니다.</p>
+      <pre><code class="language-text">(2, 10, 1)이 (2, 10, 64)에 맞춰져 계산됨</code></pre>
+      <hr>
+    </section>
+    <section id="10-torchsqrt-torchtanh-torchpow">
+      <h2>10. <code>torch.sqrt</code>, <code>torch.tanh</code>, <code>torch.pow</code></h2>
+      <p>GELU나 LayerNorm에서는 수학 함수가 나옵니다.</p>
+      <p>제곱근:</p>
+      <pre><code class="language-python">torch.sqrt(x)</code></pre>
+      <p>하이퍼볼릭 탄젠트:</p>
+      <pre><code class="language-python">torch.tanh(x)</code></pre>
+      <p>거듭제곱:</p>
+      <pre><code class="language-python">torch.pow(x, 3)</code></pre>
+      <p>또는:</p>
+      <pre><code class="language-python">x ** 3</code></pre>
+      <p>GELU tanh 근사식은 이런 모양입니다.</p>
+      <pre><code class="language-python">0.5 * x * (
+    1 + torch.tanh(
+        torch.sqrt(torch.tensor(2.0 / torch.pi, device=x.device))
+        * (x + 0.044715 * torch.pow(x, 3))
+    )
+)</code></pre>
+      <p>문법이 길어 보이지만 구조는:</p>
+      <pre><code class="language-text">입력 x에 수학 함수를 적용해서 같은 shape의 tensor를 반환한다.</code></pre>
+      <p>입니다.</p>
+      <hr>
+    </section>
+    <section id="11-devicexdevice">
+      <h2>11. <code>device=x.device</code></h2>
+      <p>GPU를 쓰면 tensor가 GPU 위에 있습니다.</p>
+      <pre><code class="language-python">x.device</code></pre>
+      <p>는 <code>x</code>가 CPU에 있는지 GPU에 있는지 알려줍니다.</p>
+      <p>새 tensor를 만들 때 입력과 같은 device에 만들어야 합니다.</p>
+      <pre><code class="language-python">torch.tensor(2.0 / torch.pi, device=x.device)</code></pre>
+      <p>그렇지 않으면 이런 문제가 생길 수 있습니다.</p>
+      <pre><code class="language-text">x는 GPU에 있는데 새 tensor는 CPU에 있음
+둘을 같이 계산하려고 해서 에러</code></pre>
+      <hr>
+    </section>
+    <section id="12-nnlinear">
+      <h2>12. <code>nn.Linear</code></h2>
+      <p><code>nn.Linear(in_features, out_features)</code>는 입력 벡터에서 가중합을 여러 개 만들어 출력 벡터를 만듭니다.</p>
+      <pre><code class="language-python">nn.Linear(d_model, 4 * d_model)</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">마지막 차원 d_model을 4*d_model로 바꾼다.</code></pre>
+      <p>입력이:</p>
+      <pre><code class="language-text">x.shape = (B, T, d_model)</code></pre>
+      <p>이면:</p>
+      <pre><code class="language-text">out.shape = (B, T, 4*d_model)</code></pre>
+      <p><code>nn.Linear</code>는 마지막 차원만 봅니다.</p>
+      <p>FeedForward에서는 보통 이렇게 씁니다.</p>
+      <pre><code class="language-python">nn.Linear(d_model, 4 * d_model)
+GELU()
+nn.Linear(4 * d_model, d_model)</code></pre>
+      <p>shape 흐름:</p>
+      <pre><code class="language-text">(B, T, C)
+-&gt; (B, T, 4C)
+-&gt; (B, T, 4C)
+-&gt; (B, T, C)</code></pre>
+      <hr>
+    </section>
+    <section id="13-nnsequential">
+      <h2>13. <code>nn.Sequential</code></h2>
+      <p><code>nn.Sequential</code>은 여러 layer를 순서대로 묶는 문법입니다.</p>
+      <pre><code class="language-python">self.net = nn.Sequential(
+    nn.Linear(d_model, 4 * d_model),
+    GELU(),
+    nn.Linear(4 * d_model, d_model),
+    nn.Dropout(dropout),
+)</code></pre>
+      <p>이렇게 만들면 forward에서 한 줄로 쓸 수 있습니다.</p>
+      <pre><code class="language-python">def forward(self, x):
+    return self.net(x)</code></pre>
+      <p>실제로는 아래와 같은 뜻입니다.</p>
+      <pre><code class="language-python">x = self.net[0](x)
+x = self.net[1](x)
+x = self.net[2](x)
+x = self.net[3](x)
+return x</code></pre>
+      <p>순서대로 지나간다는 점이 중요합니다.</p>
+      <hr>
+    </section>
+    <section id="14-nndropout">
+      <h2>14. <code>nn.Dropout</code></h2>
+      <p>Dropout은 학습 중 일부 값을 0으로 만들어 과적합을 줄이는 layer입니다.</p>
+      <pre><code class="language-python">self.dropout = nn.Dropout(drop_rate)</code></pre>
+      <p>사용:</p>
+      <pre><code class="language-python">x = self.dropout(x)</code></pre>
+      <p>학습 모드에서는 일부 값이 0이 됩니다.</p>
+      <pre><code class="language-python">model.train()</code></pre>
+      <p>평가 모드에서는 dropout이 꺼집니다.</p>
+      <pre><code class="language-python">model.eval()</code></pre>
+      <p>테스트에서 shape만 보면 dropout은 shape를 바꾸지 않습니다.</p>
+      <pre><code class="language-text">(B, T, C) -&gt; (B, T, C)</code></pre>
+      <hr>
+    </section>
+    <section id="15-nnmodulelist">
+      <h2>15. <code>nn.ModuleList</code></h2>
+      <p>TransformerBlock을 여러 개 만들 때 씁니다.</p>
+      <pre><code class="language-python">self.blocks = nn.ModuleList([
+    TransformerBlock(...)
+    for _ in range(config[&quot;n_layers&quot;])
+])</code></pre>
+      <p>그냥 Python list와 비슷하지만, PyTorch가 내부 모듈들을 제대로 추적합니다.</p>
+      <p>좋은 방식:</p>
+      <pre><code class="language-python">self.blocks = nn.ModuleList([...])</code></pre>
+      <p>피해야 할 방식:</p>
+      <pre><code class="language-python">self.blocks = [...]</code></pre>
+      <p>일반 list에 넣으면 PyTorch가 모듈을 제대로 등록하지 못하는 경우가 생깁니다.</p>
+      <hr>
+    </section>
+    <section id="16-list-comprehension">
+      <h2>16. list comprehension</h2>
+      <p>이 문법:</p>
+      <pre><code class="language-python">[
+    TransformerBlock(...)
+    for _ in range(config[&quot;n_layers&quot;])
+]</code></pre>
+      <p>은 list를 만드는 짧은 문법입니다.</p>
+      <p>예:</p>
+      <pre><code class="language-python">nums = [i for i in range(3)]</code></pre>
+      <p>결과:</p>
+      <pre><code class="language-python">[0, 1, 2]</code></pre>
+      <p>GPTModel에서는 block 여러 개를 만들 때 씁니다.</p>
+      <pre><code class="language-python">self.blocks = nn.ModuleList([
+    TransformerBlock(
+        d_model=config[&quot;emb_dim&quot;],
+        n_heads=config[&quot;n_heads&quot;],
+        drop_rate=config[&quot;drop_rate&quot;],
+        qkv_bias=config[&quot;qkv_bias&quot;],
+    )
+    for _ in range(config[&quot;n_layers&quot;])
+])</code></pre>
+      <p><code>_</code>는 반복 변수 이름이 필요 없을 때 관례적으로 쓰는 이름입니다.</p>
+      <hr>
+    </section>
+    <section id="17-for-반복문">
+      <h2>17. <code>for</code> 반복문</h2>
+      <p>여러 TransformerBlock을 순서대로 통과시킬 때 씁니다.</p>
+      <pre><code class="language-python">for block in self.blocks:
+    x = block(x, causal_mask=True)</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">self.blocks 안의 block을 하나씩 꺼내서
+x를 통과시키고
+그 결과를 다시 x에 저장한다.</code></pre>
+      <p>흐름:</p>
+      <pre><code class="language-text">x
+-&gt; block 0
+-&gt; block 1
+-&gt; block 2</code></pre>
+      <hr>
+    </section>
+    <section id="18-config-dict-문법">
+      <h2>18. config dict 문법</h2>
+      <p><code>GPTModel</code>은 config dict를 받습니다.</p>
+      <pre><code class="language-python">def __init__(self, config: dict):
+    self.config = config</code></pre>
+      <p>dict에서 값 꺼내기:</p>
+      <pre><code class="language-python">config[&quot;vocab_size&quot;]
+config[&quot;context_length&quot;]
+config[&quot;emb_dim&quot;]</code></pre>
+      <p>예:</p>
+      <pre><code class="language-python">config = {
+    &quot;vocab_size&quot;: 1000,
+    &quot;emb_dim&quot;: 64,
+}
+
+config[&quot;vocab_size&quot;]
+# 1000</code></pre>
+      <p>GPTModel에서는 이런 식으로 씁니다.</p>
+      <pre><code class="language-python">self.lm_head = nn.Linear(config[&quot;emb_dim&quot;], config[&quot;vocab_size&quot;])</code></pre>
+      <hr>
+    </section>
+    <section id="19-residual-connection의-">
+      <h2>19. residual connection의 <code>+</code></h2>
+      <p>TransformerBlock에서는 원래 입력과 결과를 더합니다.</p>
+      <pre><code class="language-python">x = x + attn_out</code></pre>
+      <p>이것은 tensor끼리 같은 위치의 값을 더하는 연산입니다.</p>
+      <p>shape가 같아야 합니다.</p>
+      <pre><code class="language-text">x shape:        (B, T, C)
+attn_out shape: (B, T, C)</code></pre>
+      <p>FeedForward 뒤에도 똑같이 합니다.</p>
+      <pre><code class="language-python">x = x + ffn_out</code></pre>
+      <p>이것이 residual connection입니다.</p>
+      <hr>
+    </section>
+    <section id="20-tuple-반환">
+      <h2>20. tuple 반환</h2>
+      <p><code>GPTModel.forward</code>는 상황에 따라 반환값이 달라집니다.</p>
+      <p>targets가 없으면:</p>
+      <pre><code class="language-python">return logits</code></pre>
+      <p>targets가 있으면:</p>
+      <pre><code class="language-python">return loss, logits</code></pre>
+      <p>이때 <code>(loss, logits)</code>는 tuple입니다.</p>
+      <pre><code class="language-python">result = (loss, logits)</code></pre>
+      <p>받을 때는 이렇게 나눠 받을 수 있습니다.</p>
+      <pre><code class="language-python">loss, logits = model(idx, targets=targets)</code></pre>
+      <hr>
+    </section>
+    <section id="21-isinstance">
+      <h2>21. <code>isinstance</code></h2>
+      <p>어떤 값이 특정 타입인지 확인하는 함수입니다.</p>
+      <pre><code class="language-python">isinstance(logits, tuple)</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">logits가 tuple이면 True
+아니면 False</code></pre>
+      <p><code>generate_text_simple</code>에서 모델 반환값이 tuple인지 확인할 때 쓸 수 있습니다.</p>
+      <pre><code class="language-python">logits = model(idx_cond)
+
+if isinstance(logits, tuple):
+    logits = logits[1]</code></pre>
+      <p>왜 필요하냐면 모델이 어떤 상황에서는:</p>
+      <pre><code class="language-python">(loss, logits)</code></pre>
+      <p>를 반환할 수 있기 때문입니다.</p>
+      <hr>
+    </section>
+    <section id="22-import-torchnnfunctional-as-f">
+      <h2>22. <code>import torch.nn.functional as F</code></h2>
+      <p>cross entropy loss를 직접 계산하려면 보통 이 import가 필요합니다.</p>
+      <pre><code class="language-python">import torch.nn.functional as F</code></pre>
+      <p>그러면:</p>
+      <pre><code class="language-python">F.cross_entropy(...)</code></pre>
+      <p>를 쓸 수 있습니다.</p>
+      <p><code>torch.nn.functional</code>은 layer 객체가 아니라 함수 형태의 연산들을 모아둔 곳입니다.</p>
+      <hr>
+    </section>
+    <section id="23-reshape">
+      <h2>23. <code>reshape</code></h2>
+      <p>loss 계산 전에 logits와 targets를 펼쳐야 합니다.</p>
+      <pre><code class="language-python">logits.reshape(-1, logits.size(-1))
+targets.reshape(-1)</code></pre>
+      <p>예:</p>
+      <pre><code class="language-text">logits shape:  (B, T, vocab_size)
+targets shape: (B, T)</code></pre>
+      <p>펼친 뒤:</p>
+      <pre><code class="language-text">logits shape:  (B*T, vocab_size)
+targets shape: (B*T)</code></pre>
+      <p><code>-1</code>은 PyTorch에게 “이 차원은 알아서 계산해줘”라는 뜻입니다.</p>
+      <p>예:</p>
+      <pre><code class="language-python">x = torch.randn(2, 3, 4)
+x.reshape(-1, 4).shape
+# torch.Size([6, 4])</code></pre>
+      <hr>
+    </section>
+    <section id="24-size-1">
+      <h2>24. <code>size(-1)</code></h2>
+      <p>tensor의 특정 차원 크기를 알고 싶을 때 씁니다.</p>
+      <pre><code class="language-python">logits.size(-1)</code></pre>
+      <p><code>-1</code>은 마지막 차원입니다.</p>
+      <pre><code class="language-text">logits shape = (B, T, vocab_size)
+logits.size(-1) == vocab_size</code></pre>
+      <p>그래서 loss 계산에서:</p>
+      <pre><code class="language-python">logits.reshape(-1, logits.size(-1))</code></pre>
+      <p>라고 쓰면 마지막 차원인 <code>vocab_size</code>는 유지하고, 앞 차원들을 한 줄로 펼칩니다.</p>
+      <hr>
+    </section>
+    <section id="25-fcross_entropy">
+      <h2>25. <code>F.cross_entropy</code></h2>
+      <p>모델의 logits와 정답 target을 비교해서 loss를 만듭니다.</p>
+      <pre><code class="language-python">loss = F.cross_entropy(
+    logits.reshape(-1, logits.size(-1)),
+    targets.reshape(-1),
+)</code></pre>
+      <p>입력 모양:</p>
+      <pre><code class="language-text">logits:  (N, vocab_size)
+targets: (N)</code></pre>
+      <p>여기서 <code>N = B * T</code>입니다.</p>
+      <p>중요:</p>
+      <pre><code class="language-text">cross_entropy에는 softmax를 직접 적용한 확률이 아니라 logits를 넣습니다.</code></pre>
+      <p>즉 이렇게 하지 않습니다.</p>
+      <pre><code class="language-python">probs = torch.softmax(logits, dim=-1)
+loss = F.cross_entropy(probs, targets)</code></pre>
+      <p>그냥 logits를 넣습니다.</p>
+      <hr>
+    </section>
+    <section id="26-slicing-idx--context_size">
+      <h2>26. slicing: <code>idx[:, -context_size:]</code></h2>
+      <p>generate에서 너무 긴 입력은 뒤쪽 일부만 잘라 씁니다.</p>
+      <pre><code class="language-python">idx_cond = idx[:, -context_size:]</code></pre>
+      <p>뜻:</p>
+      <pre><code class="language-text">모든 batch에 대해
+뒤에서 context_size개 token만 가져온다.</code></pre>
+      <p>예:</p>
+      <pre><code class="language-text">idx = [[10, 11, 12, 13, 14, 15]]
+context_size = 4</code></pre>
+      <p>결과:</p>
+      <pre><code class="language-text">idx_cond = [[12, 13, 14, 15]]</code></pre>
+      <p>문법 해석:</p>
+      <pre><code class="language-python">idx[:, -context_size:]</code></pre>
+      <pre><code class="language-text">첫 번째 차원 `:` = 모든 batch
+두 번째 차원 `-context_size:` = 뒤에서 context_size개부터 끝까지</code></pre>
+      <hr>
+    </section>
+    <section id="27-slicing-logits--1-">
+      <h2>27. slicing: <code>logits[:, -1, :]</code></h2>
+      <p>모델은 모든 위치의 logits를 냅니다.</p>
+      <pre><code class="language-text">logits shape = (B, T, vocab_size)</code></pre>
+      <p>다음 token 하나를 고를 때는 마지막 위치의 logits만 필요합니다.</p>
+      <pre><code class="language-python">logits = logits[:, -1, :]</code></pre>
+      <p>결과:</p>
+      <pre><code class="language-text">(B, T, vocab_size)
+-&gt; (B, vocab_size)</code></pre>
+      <p>문법 해석:</p>
+      <pre><code class="language-text">첫 번째 차원 `:` = 모든 batch
+두 번째 차원 `-1` = 마지막 token 위치
+세 번째 차원 `:` = vocab 전체 점수</code></pre>
+      <hr>
+    </section>
+    <section id="28-torchargmax">
+      <h2>28. <code>torch.argmax</code></h2>
+      <p>가장 큰 값의 인덱스를 찾습니다.</p>
+      <pre><code class="language-python">idx_next = torch.argmax(logits, dim=-1, keepdim=True)</code></pre>
+      <p>여기서:</p>
+      <pre><code class="language-text">logits shape = (B, vocab_size)</code></pre>
+      <p><code>dim=-1</code>은 vocab 차원에서 가장 큰 점수를 찾는다는 뜻입니다.</p>
+      <p><code>keepdim=True</code>는 결과 차원을 유지하라는 뜻입니다.</p>
+      <pre><code class="language-text">keepdim=False: (B)
+keepdim=True:  (B, 1)</code></pre>
+      <p>generate에서 뒤에 붙이려면 <code>(B, 1)</code> 모양이 편합니다.</p>
+      <hr>
+    </section>
+    <section id="29-torchcat">
+      <h2>29. <code>torch.cat</code></h2>
+      <p>tensor를 이어 붙입니다.</p>
+      <pre><code class="language-python">idx = torch.cat((idx, idx_next), dim=1)</code></pre>
+      <p>shape:</p>
+      <pre><code class="language-text">idx shape:      (B, T)
+idx_next shape: (B, 1)</code></pre>
+      <p><code>dim=1</code> 방향으로 붙이면:</p>
+      <pre><code class="language-text">(B, T) + (B, 1) -&gt; (B, T + 1)</code></pre>
+      <p>즉 새 token을 뒤에 하나 붙이는 것입니다.</p>
+      <hr>
+    </section>
+    <section id="30-rangemax_new_tokens">
+      <h2>30. <code>range(max_new_tokens)</code></h2>
+      <p>generate에서는 새 token을 여러 번 붙입니다.</p>
+      <pre><code class="language-python">for _ in range(max_new_tokens):
+    ...</code></pre>
+      <p>예:</p>
+      <pre><code class="language-python">for _ in range(3):
+    print(&quot;repeat&quot;)</code></pre>
+      <p>출력:</p>
+      <pre><code class="language-text">repeat
+repeat
+repeat</code></pre>
+      <p><code>max_new_tokens=6</code>이면 6번 반복하고, 새 token이 6개 붙습니다.</p>
+      <hr>
+    </section>
+    <section id="31-notimplementederror-지우기">
+      <h2>31. <code>NotImplementedError</code> 지우기</h2>
+      <p>템플릿에는 이런 줄이 있습니다.</p>
+      <pre><code class="language-python">raise NotImplementedError(&quot;LayerNorm.forward를 구현하세요.&quot;)</code></pre>
+      <p>이 줄은 “아직 구현 안 됨”이라는 뜻입니다.</p>
+      <p>구현을 끝내면 반드시 지워야 합니다.</p>
+      <p>예:</p>
+      <pre><code class="language-python">def forward(self, x):
+    mean = x.mean(dim=-1, keepdim=True)
+    var = x.var(dim=-1, keepdim=True, unbiased=False)
+    return self.gamma * (x - mean) / torch.sqrt(var + self.eps) + self.beta</code></pre>
+      <p>이렇게 실제 return이 있으면 <code>raise NotImplementedError</code>는 남아 있으면 안 됩니다.</p>
+      <hr>
+    </section>
+    <section id="32-테스트-실행">
+      <h2>32. 테스트 실행</h2>
+      <p>이 문법들을 사용해서 <code>src/model.py</code>를 구현한 뒤 아래 테스트를 실행합니다.</p>
+      <pre><code class="language-bash">pytest tests/test_model.py -v</code></pre>
+      <p>테스트가 보는 핵심:</p>
+      <pre><code class="language-text">LayerNorm: shape 유지
+GELU: shape 유지
+FeedForward: (B, T, C) 유지
+TransformerBlock: (B, T, C) 유지
+GPTModel: logits shape (B, T, vocab_size)
+GPTModel with targets: scalar loss 반환
+generate_text_simple: 길이가 max_new_tokens만큼 늘어남</code></pre>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      구현 파일: <code>src/model.py</code>, 테스트: <code>pytest tests/test_model.py -v</code>
+    </p>
+  </footer>
+</body>
+</html>
