@@ -135,7 +135,10 @@ class GPTModel(nn.Module):
             targets가 있으면 (loss, logits)
         """
         x = self.embedding(idx)
-        x = self.blocks(x)
+        
+        for block in self.blocks:
+            x = block(x)
+
         x = self.final_norm(x)
         logits = self.lm_head(x)
 
