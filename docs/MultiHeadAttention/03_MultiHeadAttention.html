@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MultiHeadAttention 구현 학습</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #657085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #1f2937;
+      color: #fff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1080px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 860px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.5;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .note,
+    .warn,
+    .success {
+      padding: 14px 16px;
+      margin: 14px 0;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #143f6f;
+      background: var(--accent-soft);
+      border-color: #bddcff;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f2d27a;
+    }
+
+    .success {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #a9dfc9;
+    }
+
+    .shape {
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>MultiHeadAttention 구현 학습</h1>
+      <p>
+        <code>src/attention.py</code>의 <code>MultiHeadAttention</code>을 구현하기 위한 문서입니다.
+        핵심은 Q/K/V를 만들고, head를 나누고, 미래 token을 못 보게 막은 뒤, 다시 하나의 벡터로 합치는 것입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">1. 목표</a>
+      <a href="#attention-meaning">2. attention 의미</a>
+      <a href="#shape-symbols">3. shape 기호</a>
+      <a href="#qkv">4. Q/K/V</a>
+      <a href="#split-heads">5. head 나누기</a>
+      <a href="#score-softmax">6. score와 softmax</a>
+      <a href="#causal-mask">7. causal mask</a>
+      <a href="#combine">8. head 합치기</a>
+      <a href="#implementation">9. 구현 순서</a>
+      <a href="#tests">10. 테스트 기준</a>
+      <a href="#mistakes">11. 자주 나는 실수</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 목표</h2>
+      <p>
+        이 단계에서 구현하는 것은 GPT block 안에 들어가는 <strong>causal multi-head self-attention</strong>입니다.
+        말이 길지만 쪼개면 이렇게 보면 됩니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>표현</th>
+            <th>뜻</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>self-attention</code></td>
+            <td>문장 안의 token들이 같은 문장 안의 다른 token들을 참고합니다.</td>
+          </tr>
+          <tr>
+            <td><code>causal</code></td>
+            <td>GPT는 다음 token을 맞히는 모델이라 현재 위치에서 미래 token을 보면 안 됩니다.</td>
+          </tr>
+          <tr>
+            <td><code>multi-head</code></td>
+            <td>embedding 차원을 여러 조각으로 나눠서 여러 attention을 동시에 계산합니다.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="success">
+        테스트가 요구하는 최소 결과는 두 가지입니다.
+        출력 shape는 입력과 같은 <code>(batch_size, seq_len, d_model)</code>이어야 하고,
+        causal mask를 켜면 미래 위치의 attention weight가 0이어야 합니다.
+      </div>
+    </section>
+
+    <section id="attention-meaning">
+      <h2>2. attention 의미</h2>
+      <p>
+        Dataset 단계에서는 token ID가 embedding을 지나서 벡터가 됐습니다.
+        attention은 각 위치의 벡터가 문장 안의 다른 위치 벡터를 얼마나 참고할지 정하는 계산입니다.
+      </p>
+
+      <p>
+        예를 들어 token이 4개 있으면, 각 token은 4개 token에 대한 점수를 갖습니다.
+        이 점수가 softmax를 지나면 비율이 됩니다.
+      </p>
+
+      <pre><code>token 0이 참고하는 비율: [1.00, 0.00, 0.00, 0.00]
+token 1이 참고하는 비율: [0.35, 0.65, 0.00, 0.00]
+token 2이 참고하는 비율: [0.20, 0.30, 0.50, 0.00]
+token 3이 참고하는 비율: [0.10, 0.20, 0.25, 0.45]</code></pre>
+
+      <p>
+        위 예시에서 오른쪽 위가 0인 이유가 causal mask입니다.
+        0번 token은 1, 2, 3번 token을 보면 안 됩니다.
+        1번 token은 2, 3번 token을 보면 안 됩니다.
+      </p>
+    </section>
+
+    <section id="shape-symbols">
+      <h2>3. shape 기호</h2>
+      <p>
+        이 구현은 shape만 놓치지 않으면 절반 이상 끝납니다.
+        앞으로 나오는 기호는 아래처럼 읽으면 됩니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>기호</th>
+            <th>의미</th>
+            <th>예시</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>B</code></td>
+            <td>batch size. 한 번에 처리하는 문장 조각 개수</td>
+            <td><code>2</code></td>
+          </tr>
+          <tr>
+            <td><code>T</code></td>
+            <td>sequence length. 한 sample 안의 token 개수</td>
+            <td><code>10</code></td>
+          </tr>
+          <tr>
+            <td><code>C</code></td>
+            <td>channel 또는 embedding 차원. 보통 <code>d_model</code></td>
+            <td><code>64</code></td>
+          </tr>
+          <tr>
+            <td><code>H</code></td>
+            <td>head 개수. <code>n_heads</code></td>
+            <td><code>4</code></td>
+          </tr>
+          <tr>
+            <td><code>D</code></td>
+            <td>head 하나가 맡는 차원. <code>head_dim = d_model // n_heads</code></td>
+            <td><code>16</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <pre><code>x shape: (B, T, C)
+예: batch_size=2, seq_len=10, d_model=64
+x shape: (2, 10, 64)</code></pre>
+    </section>
+
+    <section id="qkv">
+      <h2>4. Q/K/V</h2>
+      <p>
+        입력 <code>x</code> 하나에서 <code>Q</code>, <code>K</code>, <code>V</code> 세 종류의 벡터를 만듭니다.
+        모두 <code>nn.Linear(d_model, d_model)</code>을 통과해서 만듭니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>풀네임</th>
+            <th>역할</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Q</code></td>
+            <td>Query</td>
+            <td>현재 token이 무엇을 찾고 싶은지 나타내는 벡터</td>
+          </tr>
+          <tr>
+            <td><code>K</code></td>
+            <td>Key</td>
+            <td>각 token이 어떤 특징을 갖고 있는지 비교용으로 내놓는 벡터</td>
+          </tr>
+          <tr>
+            <td><code>V</code></td>
+            <td>Value</td>
+            <td>attention 비율로 실제 섞일 정보 벡터</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        중요한 점은 <code>Q</code>, <code>K</code>, <code>V</code> 모두 처음 shape가 같습니다.
+      </p>
+
+      <pre><code>q = self.q_proj(x)  # (B, T, C)
+k = self.k_proj(x)  # (B, T, C)
+v = self.v_proj(x)  # (B, T, C)</code></pre>
+    </section>
+
+    <section id="split-heads">
+      <h2>5. head 나누기</h2>
+      <p>
+        multi-head는 <code>d_model</code> 차원을 여러 조각으로 나누는 것입니다.
+        예를 들어 <code>d_model=64</code>, <code>n_heads=4</code>라면 head 하나는 <code>16</code>차원만 맡습니다.
+      </p>
+
+      <pre><code>head_dim = d_model // n_heads
+64 // 4 = 16</code></pre>
+
+      <p>
+        그래서 <code>(B, T, C)</code>를 <code>(B, H, T, D)</code>로 바꿉니다.
+        PyTorch에서는 보통 <code>view</code>와 <code>transpose</code>를 같이 씁니다.
+      </p>
+
+      <pre><code>q = q.view(B, T, self.n_heads, self.head_dim)
+q = q.transpose(1, 2)
+
+# (B, T, H, D) -> (B, H, T, D)</code></pre>
+
+      <div class="note">
+        <code>transpose(1, 2)</code>는 1번 차원과 2번 차원을 바꾸라는 뜻입니다.
+        <code>(B, T, H, D)</code>에서 <code>T</code>와 <code>H</code> 위치를 바꿔서
+        <code>(B, H, T, D)</code>를 만듭니다.
+      </div>
+    </section>
+
+    <section id="score-softmax">
+      <h2>6. score와 softmax</h2>
+      <p>
+        attention score는 <code>Q</code>와 <code>K</code>를 곱해서 만듭니다.
+        각 token이 다른 token과 얼마나 관련 있는지를 점수로 계산하는 단계입니다.
+      </p>
+
+      <pre><code>scores = q @ k.transpose(-2, -1)
+scores = scores / (self.head_dim ** 0.5)</code></pre>
+
+      <p>
+        shape를 보면 왜 결과가 <code>(B, H, T, T)</code>인지 알 수 있습니다.
+      </p>
+
+      <pre><code>q shape:              (B, H, T, D)
+k.transpose shape:   (B, H, D, T)
+scores shape:         (B, H, T, T)</code></pre>
+
+      <p>
+        마지막의 <code>T, T</code>는 "각 위치가 각 위치를 얼마나 볼지"를 뜻합니다.
+        예를 들어 <code>T=4</code>면 4 x 4 표가 만들어집니다.
+      </p>
+
+      <pre><code>attn_weights = torch.softmax(scores, dim=-1)</code></pre>
+
+      <p>
+        <code>dim=-1</code>은 마지막 차원 기준으로 softmax를 하겠다는 뜻입니다.
+        한 token이 볼 수 있는 여러 위치들의 점수를 확률처럼 합이 1인 비율로 바꿉니다.
+      </p>
+    </section>
+
+    <section id="causal-mask">
+      <h2>7. causal mask</h2>
+      <p>
+        GPT는 왼쪽에서 오른쪽으로 다음 token을 맞힙니다.
+        그래서 현재 위치에서 미래 위치를 보면 정답을 몰래 보는 셈이 됩니다.
+        이걸 막는 장치가 causal mask입니다.
+      </p>
+
+      <p>
+        <code>T=4</code>일 때 막아야 하는 위치는 아래처럼 오른쪽 위입니다.
+      </p>
+
+      <pre><code>현재 위치 i가 미래 위치 j를 보면 안 됨: j &gt; i
+
+[
+  [False, True,  True,  True ],
+  [False, False, True,  True ],
+  [False, False, False, True ],
+  [False, False, False, False],
+]</code></pre>
+
+      <p>
+        PyTorch에서는 이렇게 만들 수 있습니다.
+      </p>
+
+      <pre><code>mask = torch.triu(
+    torch.ones(T, T, dtype=torch.bool, device=x.device),
+    diagonal=1,
+)
+scores = scores.masked_fill(mask, float("-inf"))</code></pre>
+
+      <p>
+        <code>masked_fill</code>은 mask가 <code>True</code>인 위치를 특정 값으로 바꿉니다.
+        미래 위치 score를 <code>-inf</code>로 만들면 softmax 뒤에는 0이 됩니다.
+      </p>
+
+      <div class="warn">
+        테스트는 <code>return_attention_weights=True</code>일 때 받은 attention weight에서
+        미래 위치 값이 0인지 직접 확인합니다. 그래서 mask는 softmax 전에 적용해야 합니다.
+      </div>
+    </section>
+
+    <section id="combine">
+      <h2>8. head 합치기</h2>
+      <p>
+        attention weight와 <code>V</code>를 곱하면 각 head별 결과가 나옵니다.
+      </p>
+
+      <pre><code>context = attn_weights @ v
+
+attn_weights shape: (B, H, T, T)
+v shape:            (B, H, T, D)
+context shape:      (B, H, T, D)</code></pre>
+
+      <p>
+        이제 head를 다시 합쳐서 원래 embedding 차원 <code>C</code>로 되돌립니다.
+      </p>
+
+      <pre><code>context = context.transpose(1, 2)
+context = context.contiguous().view(B, T, self.d_model)
+
+# (B, H, T, D) -> (B, T, H, D) -> (B, T, C)</code></pre>
+
+      <p>
+        <code>transpose</code>를 하면 tensor의 메모리 배치가 이어져 있지 않을 수 있습니다.
+        그래서 <code>view</code> 전에 <code>contiguous()</code>를 붙이는 편이 안전합니다.
+      </p>
+    </section>
+
+    <section id="implementation">
+      <h2>9. 구현 순서</h2>
+      <h3>1단계: <code>__init__</code>에서 layer 준비</h3>
+      <pre><code>self.q_proj = nn.Linear(d_model, d_model, bias=qkv_bias)
+self.k_proj = nn.Linear(d_model, d_model, bias=qkv_bias)
+self.v_proj = nn.Linear(d_model, d_model, bias=qkv_bias)
+self.out_proj = nn.Linear(d_model, d_model)
+self.dropout = nn.Dropout(drop_rate)</code></pre>
+
+      <p>
+        <code>qkv_bias</code>는 Q/K/V projection에 bias를 둘지 말지를 정하는 옵션입니다.
+        과제 템플릿이 인자로 받으므로 그대로 <code>nn.Linear(..., bias=qkv_bias)</code>에 넣으면 됩니다.
+      </p>
+
+      <h3>2단계: forward에서 B, T, C 꺼내기</h3>
+      <pre><code>B, T, C = x.shape</code></pre>
+
+      <p>
+        여기서 <code>C</code>는 <code>d_model</code>과 같아야 합니다.
+      </p>
+
+      <h3>3단계: Q/K/V 만들고 head 나누기</h3>
+      <pre><code>q = self.q_proj(x)
+k = self.k_proj(x)
+v = self.v_proj(x)
+
+q = q.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+k = k.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)
+v = v.view(B, T, self.n_heads, self.head_dim).transpose(1, 2)</code></pre>
+
+      <h3>4단계: attention score 계산</h3>
+      <pre><code>scores = q @ k.transpose(-2, -1)
+scores = scores / (self.head_dim ** 0.5)</code></pre>
+
+      <h3>5단계: causal mask 적용</h3>
+      <pre><code>if causal_mask:
+    mask = torch.triu(
+        torch.ones(T, T, dtype=torch.bool, device=x.device),
+        diagonal=1,
+    )
+    scores = scores.masked_fill(mask, float("-inf"))</code></pre>
+
+      <h3>6단계: softmax, dropout, V와 곱하기</h3>
+      <pre><code>attn_weights = torch.softmax(scores, dim=-1)
+attn_weights = self.dropout(attn_weights)
+context = attn_weights @ v</code></pre>
+
+      <h3>7단계: head를 합치고 output projection</h3>
+      <pre><code>context = context.transpose(1, 2).contiguous().view(B, T, self.d_model)
+out = self.out_proj(context)</code></pre>
+
+      <h3>8단계: attention weight 반환 옵션 처리</h3>
+      <pre><code>if return_attention_weights:
+    return out, attn_weights
+return out</code></pre>
+
+      <div class="note">
+        테스트에서 <code>drop_rate=0.0</code>으로 만들기 때문에 causal mask 검사가 안정적으로 됩니다.
+        학습할 때는 dropout이 attention weight 일부를 추가로 0으로 만들 수 있지만,
+        미래 위치가 0이어야 한다는 조건은 그대로 지켜져야 합니다.
+      </div>
+    </section>
+
+    <section id="tests">
+      <h2>10. 테스트 기준</h2>
+      <p>
+        이 과제의 테스트 파일은 <code>tests/test_attention.py</code>입니다.
+      </p>
+
+      <pre><code>pytest tests/test_attention.py -v</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>테스트</th>
+            <th>확인하는 것</th>
+            <th>통과 조건</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>test_mha_output_shape</code></td>
+            <td><code>mha(x)</code>의 출력 shape</td>
+            <td><code>(batch_size, seq_len, d_model)</code></td>
+          </tr>
+          <tr>
+            <td><code>test_mha_causal_mask_future_zero</code></td>
+            <td><code>return_attention_weights=True</code>일 때 attention weight shape와 미래 위치 값</td>
+            <td><code>(B, n_heads, T, T)</code>이고 <code>j &gt; i</code> 위치가 0</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>
+        테스트가 보는 attention weight의 shape는 아래와 같습니다.
+      </p>
+
+      <pre><code>attn_weights shape: (B, n_heads, T, T)</code></pre>
+    </section>
+
+    <section id="mistakes">
+      <h2>11. 자주 나는 실수</h2>
+
+      <h3>1. mask를 softmax 뒤에 적용함</h3>
+      <p>
+        미래 위치를 0으로 만들려면 softmax 전에 score를 <code>-inf</code>로 바꿔야 합니다.
+        softmax 뒤에 값을 억지로 0으로 바꾸면 한 줄의 합이 1이 아니게 됩니다.
+      </p>
+
+      <h3>2. <code>k.transpose(-2, -1)</code>를 빼먹음</h3>
+      <p>
+        <code>q</code>와 <code>k</code>는 둘 다 <code>(B, H, T, D)</code>입니다.
+        score를 만들려면 마지막 두 차원을 <code>(D, T)</code>로 바꾼 key가 필요합니다.
+      </p>
+
+      <h3>3. head를 합칠 때 <code>contiguous()</code>를 빼먹음</h3>
+      <p>
+        <code>transpose</code> 뒤에는 <code>view</code>가 바로 실패할 수 있습니다.
+        <code>transpose(1, 2).contiguous().view(...)</code> 순서로 쓰면 안전합니다.
+      </p>
+
+      <h3>4. mask tensor를 CPU에 만들어 GPU 입력과 섞음</h3>
+      <p>
+        입력 <code>x</code>가 GPU에 있는데 mask가 CPU에 있으면 device 오류가 납니다.
+        <code>torch.ones(..., device=x.device)</code>처럼 입력과 같은 device에 만들어야 합니다.
+      </p>
+
+      <h3>5. <code>d_model % n_heads</code> 확인을 빼먹음</h3>
+      <p>
+        head를 똑같은 크기로 나눠야 하므로 <code>d_model</code>은 <code>n_heads</code>로 나누어떨어져야 합니다.
+        템플릿에 이미 이 검사가 들어있으니 유지하면 됩니다.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      구현 파일: <code>src/attention.py</code>,
+      테스트: <code>pytest tests/test_attention.py -v</code>
+    </p>
+  </footer>
+</body>
+</html>

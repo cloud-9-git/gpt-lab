@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>04_GPT 모델 구성 요소</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #667085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --bad: #9f1239;
+      --bad-soft: #ffe4e6;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 880px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #344054;
+      background: #eef2f7;
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0b3b75;
+      background: #edf4ff;
+      border-radius: 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 12px 0;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin: 18px 0 0;
+    }
+
+    .meta div,
+    .card {
+      padding: 14px;
+      background: #fbfcff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .meta strong,
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+      color: #344054;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .note,
+    .ok,
+    .warn,
+    .bad {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #1e3a5f;
+      background: var(--accent-soft);
+      border-color: #b9dcff;
+    }
+
+    .ok {
+      color: #064e3b;
+      background: var(--ok-soft);
+      border-color: #a7e3c8;
+    }
+
+    .warn {
+      color: #6b4600;
+      background: var(--warn-soft);
+      border-color: #f4d37c;
+    }
+
+    .bad {
+      color: #881337;
+      background: var(--bad-soft);
+      border-color: #fecdd3;
+    }
+
+    .flow {
+      display: grid;
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .flow-line {
+      padding: 12px 14px;
+      background: #fbfcff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .shape {
+      color: var(--ok);
+      font-weight: 800;
+    }
+
+    footer {
+      padding: 0 0 36px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 720px) {
+      section {
+        padding: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>04_GPT 모델 구성 요소</h1>
+      <p>
+        <code>src/model.py</code>의 TODO를 구현하기 위한 학습 문서입니다.
+        교재 ch04 흐름을 과제 테스트 기준으로 다시 정리합니다.
+      </p>
+      <div class="meta">
+        <div><strong>구현 파일</strong><code>src/model.py</code></div>
+        <div><strong>테스트</strong><code>pytest tests/test_model.py -v</code></div>
+        <div><strong>참고 교재</strong><code>LLM.txt</code> ch04</div>
+        <div><strong>선행 조건</strong><code>src/attention.py</code>, <code>src/embeddings.py</code></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">과제 목표</a>
+      <a href="#big-picture">큰 흐름</a>
+      <a href="#components">구성 요소</a>
+      <a href="#implementation">구현 순서</a>
+      <a href="#tests">테스트 읽기</a>
+      <a href="#pitfalls">자주 막히는 곳</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 이 과제에서 만드는 것</h2>
+      <p>
+        이번 단계는 이전 과제에서 만든 <code>InputEmbedding</code>과 <code>MultiHeadAttention</code>을 가져와서
+        GPT 모델의 몸통을 조립하는 단계입니다. 새로 구현할 것은 다음 여섯 가지입니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>구현 대상</th>
+            <th>역할</th>
+            <th>테스트가 보는 것</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>LayerNorm</code></td>
+            <td>각 토큰 벡터의 마지막 차원을 안정적인 범위로 정규화합니다.</td>
+            <td>입력과 같은 shape가 나오는지</td>
+          </tr>
+          <tr>
+            <td><code>GELU</code></td>
+            <td>FeedForward 안에서 쓰는 부드러운 활성화 함수입니다.</td>
+            <td>입력과 같은 shape가 나오는지</td>
+          </tr>
+          <tr>
+            <td><code>FeedForward</code></td>
+            <td>각 토큰 벡터를 4배 차원으로 확장했다가 다시 원래 차원으로 줄입니다.</td>
+            <td><code>(B, T, C)</code> shape를 유지하는지</td>
+          </tr>
+          <tr>
+            <td><code>TransformerBlock</code></td>
+            <td>LayerNorm, causal attention, FeedForward, residual connection을 묶습니다.</td>
+            <td>입력과 같은 <code>(B, T, C)</code>가 나오는지</td>
+          </tr>
+          <tr>
+            <td><code>GPTModel</code></td>
+            <td>토큰 ID를 logits로 바꾸는 전체 GPT 모델입니다.</td>
+            <td><code>(B, T, vocab_size)</code> logits와 loss 반환</td>
+          </tr>
+          <tr>
+            <td><code>generate_text_simple</code></td>
+            <td>가장 큰 logit의 토큰을 반복해서 뒤에 붙이는 greedy 생성 함수입니다.</td>
+            <td>길이가 <code>max_new_tokens</code>만큼 늘어나는지</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        이 과제의 핵심은 “내용은 바꾸되 shape는 유지한다”입니다.
+        TransformerBlock은 입력과 출력 shape가 같아야 여러 블록을 계속 쌓을 수 있습니다.
+      </div>
+    </section>
+
+    <section id="big-picture">
+      <h2>2. GPTModel 전체 흐름</h2>
+      <p>
+        GPT 모델은 토큰 ID를 받아서 각 위치마다 “다음 토큰 후보 점수”를 출력합니다.
+        이 점수를 <strong>logits</strong>라고 부릅니다.
+      </p>
+
+      <div class="flow">
+        <div class="flow-line">idx <span class="shape">(B, T)</span></div>
+        <div class="flow-line">InputEmbedding: token embedding + position embedding <span class="shape">(B, T, C)</span></div>
+        <div class="flow-line">TransformerBlock x n_layers <span class="shape">(B, T, C)</span></div>
+        <div class="flow-line">final LayerNorm <span class="shape">(B, T, C)</span></div>
+        <div class="flow-line">LM head Linear(C -> vocab_size) <span class="shape">(B, T, V)</span></div>
+      </div>
+
+      <p>
+        여기서 <code>B</code>는 batch size, <code>T</code>는 sequence length, <code>C</code>는 embedding dimension,
+        <code>V</code>는 vocabulary size입니다.
+      </p>
+
+      <div class="ok">
+        <strong>문맥 벡터와 임베딩의 관계</strong>
+        처음 입력은 토큰 임베딩입니다. TransformerBlock을 지나면 같은 shape의 새 벡터가 나오는데,
+        이 벡터는 주변 토큰 정보를 반영한 문맥 벡터입니다. 다음 블록은 이 문맥 벡터를 새 입력처럼 받습니다.
+      </div>
+    </section>
+
+    <section id="components">
+      <h2>3. 구성 요소별 이해</h2>
+
+      <h3>3.1 LayerNorm</h3>
+      <p>
+        LayerNorm은 각 토큰 벡터 내부의 마지막 차원에 대해 평균과 분산을 계산합니다.
+        <code>(B, T, C)</code> 입력이라면 각 <code>C</code>차원 벡터를 따로 정규화합니다.
+      </p>
+      <pre><code>mean = x.mean(dim=-1, keepdim=True)
+var = x.var(dim=-1, keepdim=True, unbiased=False)
+norm_x = (x - mean) / torch.sqrt(var + self.eps)
+out = self.gamma * norm_x + self.beta</code></pre>
+      <p>
+        <code>gamma</code>와 <code>beta</code>는 학습되는 파라미터입니다.
+        정규화 후에도 모델이 필요하면 다시 크기를 조절하거나 이동할 수 있게 해줍니다.
+      </p>
+
+      <h3>3.2 GELU</h3>
+      <p>
+        GELU는 ReLU처럼 비선형성을 넣는 함수지만 더 부드럽게 변합니다.
+        교재 ch04는 GPT-2에서 쓰는 tanh 근사식을 소개합니다.
+      </p>
+      <pre><code>return 0.5 * x * (
+    1.0 + torch.tanh(
+        torch.sqrt(torch.tensor(2.0 / torch.pi, device=x.device))
+        * (x + 0.044715 * torch.pow(x, 3))
+    )
+)</code></pre>
+      <div class="warn">
+        <code>torch.tensor(2.0 / torch.pi)</code>를 만들 때 <code>device=x.device</code>를 맞추면 GPU에서 안전합니다.
+        테스트는 CPU지만 습관을 들여두면 좋습니다.
+      </div>
+
+      <h3>3.3 FeedForward</h3>
+      <p>
+        FeedForward는 각 토큰 위치를 독립적으로 처리하는 작은 MLP입니다.
+        attention이 토큰 사이 관계를 섞는다면, FeedForward는 각 토큰 벡터 안의 특징을 더 풍부하게 변환합니다.
+      </p>
+      <pre><code>self.net = nn.Sequential(
+    nn.Linear(d_model, mult * d_model),
+    GELU(),
+    nn.Linear(mult * d_model, d_model),
+    nn.Dropout(dropout),
+)</code></pre>
+      <p>
+        앞에서 4배로 늘리고 뒤에서 다시 줄이기 때문에 최종 shape는 그대로 <code>(B, T, d_model)</code>입니다.
+      </p>
+
+      <h3>3.4 TransformerBlock</h3>
+      <p>
+        TransformerBlock은 GPT의 반복 단위입니다.
+        이 과제의 구조는 <strong>Pre-LayerNorm</strong>입니다. 즉, attention과 FeedForward 앞에 LayerNorm을 먼저 적용합니다.
+      </p>
+      <pre><code>shortcut = x
+x = self.norm1(x)
+x = self.attn(x, causal_mask=causal_mask)
+x = self.drop_resid(x)
+x = x + shortcut
+
+shortcut = x
+x = self.norm2(x)
+x = self.ffn(x)
+x = self.drop_resid(x)
+x = x + shortcut</code></pre>
+      <p>
+        <code>x + shortcut</code>이 residual connection입니다.
+        깊은 모델에서 정보와 gradient가 더 잘 흐르게 도와줍니다.
+      </p>
+
+      <h3>3.5 GPTModel</h3>
+      <p>
+        GPTModel은 전체 조립입니다. 이 과제에서는 이미 만든 <code>InputEmbedding</code>을 사용하면 됩니다.
+        TransformerBlock은 <code>causal_mask</code> 인자를 받으므로 <code>nn.ModuleList</code>에 담고 직접 반복하는 편이 명확합니다.
+      </p>
+      <pre><code>self.embedding = InputEmbedding(
+    config["vocab_size"],
+    config["emb_dim"],
+    config["context_length"],
+    config["drop_rate"],
+)
+self.blocks = nn.ModuleList([
+    TransformerBlock(
+        config["emb_dim"],
+        config["n_heads"],
+        config["drop_rate"],
+        config.get("qkv_bias", False),
+    )
+    for _ in range(config["n_layers"])
+])
+self.final_norm = LayerNorm(config["emb_dim"])
+self.lm_head = nn.Linear(config["emb_dim"], config["vocab_size"], bias=False)</code></pre>
+
+      <h3>3.6 targets가 있을 때 loss 계산</h3>
+      <p>
+        <code>GPTModel(idx)</code>는 logits만 반환하면 됩니다.
+        <code>GPTModel(idx, targets)</code>는 <code>(loss, logits)</code>를 반환해야 합니다.
+      </p>
+      <pre><code>logits = self.lm_head(x)
+
+if targets is None:
+    return logits
+
+B, T, V = logits.shape
+loss = nn.functional.cross_entropy(
+    logits.view(B * T, V),
+    targets.view(B * T),
+)
+return loss, logits</code></pre>
+      <p>
+        Cross entropy는 마지막 차원 <code>V</code>를 class 점수로 봅니다.
+        그래서 <code>(B, T, V)</code>를 <code>(B*T, V)</code>로 펴고,
+        targets도 <code>(B*T)</code>로 펴서 token 단위 분류 문제처럼 계산합니다.
+      </p>
+    </section>
+
+    <section id="implementation">
+      <h2>4. 추천 구현 순서</h2>
+      <ol>
+        <li><code>LayerNorm.forward</code>를 구현하고 첫 테스트만 실행합니다.</li>
+        <li><code>GELU.forward</code>를 구현합니다.</li>
+        <li><code>FeedForward.__init__</code>, <code>FeedForward.forward</code>를 구현합니다.</li>
+        <li><code>TransformerBlock.__init__</code>, <code>TransformerBlock.forward</code>를 구현합니다.</li>
+        <li><code>GPTModel.__init__</code>, <code>GPTModel.forward</code>를 구현합니다.</li>
+        <li><code>generate_text_simple</code>을 마지막에 구현합니다.</li>
+      </ol>
+
+      <h3>generate_text_simple의 흐름</h3>
+      <p>
+        생성 함수는 모델을 반복 호출합니다.
+        매번 마지막 위치의 logits만 보고 가장 큰 값을 가진 token id를 뒤에 붙입니다.
+      </p>
+      <pre><code>for _ in range(max_new_tokens):
+    idx_cond = idx[:, -context_size:]
+    with torch.no_grad():
+        logits = model(idx_cond)
+    if isinstance(logits, tuple):
+        logits = logits[1]
+    logits = logits[:, -1, :]
+    idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+    idx = torch.cat((idx, idx_next), dim=1)
+return idx</code></pre>
+      <div class="note">
+        <code>idx[:, -context_size:]</code>가 중요합니다.
+        모델의 위치 임베딩은 최대 <code>context_length</code>까지만 있으므로,
+        문맥이 길어지면 마지막 토큰들만 잘라서 넣어야 합니다.
+      </div>
+    </section>
+
+    <section id="tests">
+      <h2>5. 테스트를 읽는 법</h2>
+      <p>
+        전체 테스트를 한 번에 실행하기 전에 작은 단위부터 확인하면 어디가 틀렸는지 훨씬 빨리 찾을 수 있습니다.
+      </p>
+      <pre><code>pytest tests/test_model.py::TestLayerNorm::test_layernorm_shape -v
+pytest tests/test_model.py::TestGELU::test_gelu_shape -v
+pytest tests/test_model.py::TestFeedForward::test_feedforward_shape -v
+pytest tests/test_model.py::TestTransformerBlock::test_transformer_block_shape -v
+pytest tests/test_model.py::TestGPTModel::test_gpt_forward_shape -v
+pytest tests/test_model.py::TestGPTModel::test_gpt_forward_with_targets_returns_loss -v
+pytest tests/test_model.py::TestGenerateTextSimple::test_generate_text_simple_shape -v</code></pre>
+
+      <h3>최종 실행</h3>
+      <pre><code>pytest tests/test_model.py -v</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>실패 메시지</th>
+            <th>먼저 볼 곳</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>LayerNorm 미구현</code></td>
+            <td><code>LayerNorm.forward</code>의 평균, 분산, <code>gamma/beta</code></td>
+          </tr>
+          <tr>
+            <td><code>FeedForward 미구현</code></td>
+            <td><code>nn.Sequential</code> 구성과 출력 차원</td>
+          </tr>
+          <tr>
+            <td><code>TransformerBlock 미구현</code></td>
+            <td>attention 호출 결과가 tuple인지, residual 더하기 위치가 맞는지</td>
+          </tr>
+          <tr>
+            <td><code>GPTModel(targets=...) 미구현</code></td>
+            <td>logits와 targets를 flatten해서 cross entropy를 계산했는지</td>
+          </tr>
+          <tr>
+            <td>생성 결과 길이가 안 맞음</td>
+            <td><code>torch.cat</code>을 dim=1로 했는지, 반복 횟수가 맞는지</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="pitfalls">
+      <h2>6. 자주 막히는 곳</h2>
+
+      <div class="grid">
+        <div class="card">
+          <strong>1. LayerNorm 분산 옵션</strong>
+          <p>
+            교재 구현과 맞추려면 <code>unbiased=False</code>를 사용합니다.
+            최신 PyTorch에서는 <code>correction=0</code>과 같은 뜻입니다.
+          </p>
+        </div>
+        <div class="card">
+          <strong>2. MultiHeadAttention 선행 구현</strong>
+          <p>
+            <code>TransformerBlock</code>은 <code>MultiHeadAttention</code>을 호출합니다.
+            먼저 <code>pytest tests/test_attention.py -v</code>가 통과하는지 확인하세요.
+          </p>
+        </div>
+        <div class="card">
+          <strong>3. tuple 반환 처리</strong>
+          <p>
+            attention이 디버깅용으로 <code>(out, attn_weights)</code>를 반환할 수 있습니다.
+            블록 안에서는 실제 출력 <code>out</code>만 사용해야 합니다.
+          </p>
+        </div>
+        <div class="card">
+          <strong>4. view 전에 contiguous</strong>
+          <p>
+            이번 <code>model.py</code>에서는 크게 문제되지 않지만,
+            attention 구현에서 transpose 뒤 view를 쓸 때는 <code>contiguous()</code> 또는 <code>reshape()</code>가 필요할 수 있습니다.
+          </p>
+        </div>
+        <div class="card">
+          <strong>5. logits의 마지막 차원</strong>
+          <p>
+            <code>lm_head</code>의 출력 차원은 반드시 <code>vocab_size</code>입니다.
+            각 위치마다 어휘 사전 전체 토큰 후보에 점수를 매겨야 하기 때문입니다.
+          </p>
+        </div>
+        <div class="card">
+          <strong>6. train/eval 모드</strong>
+          <p>
+            테스트는 shape 중심이라 엄격히 요구하지 않지만, generation에서는 보통 <code>model.eval()</code>과 <code>torch.no_grad()</code>를 함께 씁니다.
+          </p>
+        </div>
+      </div>
+
+      <div class="bad">
+        <strong>주의</strong>
+        이 문서는 구현을 돕기 위한 학습 문서입니다.
+        최종 코드는 반드시 현재 저장소의 함수 시그니처와 테스트 요구사항에 맞춰 작성해야 합니다.
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>참고 경로: <code>/Users/igyeong-geun/Documents/jungle/week14/gpt-lab/LLM.txt</code> 교재 ch04</p>
+  </footer>
+</body>
+</html>

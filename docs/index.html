@@ -302,7 +302,13 @@
           <li class="chapter"><a href="BPE_토크나이저/BPE_토크나이저_Python_문법.md" data-doc="true">BPE 구현 Python 문법</a></li>
 
           <li class="header">Dataset / InputEmbedding</li>
-          <li class="chapter"><a href="Dataset_InputEmbedding/Dataset_InputEmbedding_구현_학습.html" data-doc="true">Dataset/InputEmbedding 구현 학습</a></li>
+          <li class="chapter"><a href="Dataset_InputEmbedding/02_Dataset_InputEmbedding.html" data-doc="true">Dataset/InputEmbedding 구현 학습</a></li>
+
+          <li class="header">MultiHeadAttention</li>
+          <li class="chapter"><a href="MultiHeadAttention/03_MultiHeadAttention.html" data-doc="true">MultiHeadAttention 구현 학습</a></li>
+
+          <li class="header">GPT 모델</li>
+          <li class="chapter"><a href="GPT_모델/04_GPT_모델_구성_요소.html" data-doc="true">GPT 모델 구성 요소 구현 학습</a></li>
 
           <li class="header">과제 자료</li>
           <li class="chapter"><a href="과제_매핑/textbook-test-mapping.md" data-doc="true">교재와 테스트 매핑</a></li>
@@ -325,8 +331,8 @@
           </p>
 
           <div class="note">
-            현재 문서 구조는 BPE 토크나이저, Dataset/InputEmbedding, 과제 매핑 자료로 나눴습니다.
-            BPE 구현을 먼저 끝낸 뒤 Dataset과 embedding 문서로 넘어가면 흐름이 가장 자연스럽습니다.
+            현재 문서 구조는 BPE 토크나이저, Dataset/InputEmbedding, MultiHeadAttention, GPT 모델, 과제 매핑 자료로 나눴습니다.
+            BPE 구현을 먼저 끝낸 뒤 Dataset과 embedding, attention, GPT 모델 순서로 넘어가면 흐름이 가장 자연스럽습니다.
           </div>
 
           <h2>BPE Tokenizer</h2>
@@ -367,7 +373,25 @@
             <article class="doc-card">
               <strong>Dataset/InputEmbedding 구현 학습</strong>
               <p>입력 token과 target token을 한 칸 차이로 만드는 Dataset, token embedding과 position embedding을 설명합니다.</p>
-              <a href="Dataset_InputEmbedding/Dataset_InputEmbedding_구현_학습.html" data-doc="true">문서 열기</a>
+              <a href="Dataset_InputEmbedding/02_Dataset_InputEmbedding.html" data-doc="true">문서 열기</a>
+            </article>
+          </div>
+
+          <h2>MultiHeadAttention</h2>
+          <div class="doc-grid">
+            <article class="doc-card">
+              <strong>MultiHeadAttention 구현 학습</strong>
+              <p>Q/K/V projection, head 분리, causal mask, attention weight shape를 테스트 기준으로 설명합니다.</p>
+              <a href="MultiHeadAttention/03_MultiHeadAttention.html" data-doc="true">문서 열기</a>
+            </article>
+          </div>
+
+          <h2>GPT 모델</h2>
+          <div class="doc-grid">
+            <article class="doc-card">
+              <strong>GPT 모델 구성 요소 구현 학습</strong>
+              <p>LayerNorm, GELU, FeedForward, TransformerBlock, GPTModel, generate_text_simple을 테스트 기준으로 설명합니다.</p>
+              <a href="GPT_모델/04_GPT_모델_구성_요소.html" data-doc="true">문서 열기</a>
             </article>
           </div>
 
@@ -383,6 +407,8 @@
           <ul class="quick-list">
             <li><code>docs/BPE_토크나이저/</code>: BPE tokenizer 구현 학습 문서</li>
             <li><code>docs/Dataset_InputEmbedding/</code>: Dataset과 embedding 구현 학습 문서</li>
+            <li><code>docs/MultiHeadAttention/</code>: causal multi-head self-attention 구현 학습 문서</li>
+            <li><code>docs/GPT_모델/</code>: GPT 모델 구성 요소 구현 학습 문서</li>
             <li><code>docs/과제_매핑/</code>: 과제 진행 보조 자료</li>
           </ul>
         </section>
