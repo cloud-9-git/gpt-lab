@@ -40,5 +40,6 @@ notion/
 
 # 기타
 .DS_Store
+.vscode/settings.json
 *.swp
 *~
