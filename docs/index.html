@@ -78,11 +78,14 @@
     }
 
     .summary .header {
-      padding: 18px 18px 8px;
-      color: #6b7280;
+      margin: 14px 14px 6px;
+      padding: 8px 12px;
+      color: #1f2937;
+      background: transparent;
+      border-left: 4px solid var(--link);
       font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
@@ -311,6 +314,10 @@
           <li class="chapter"><a href="GPT_모델/04_GPT_모델_구성_요소.html" data-doc="true">GPT 모델 구성 요소 구현 학습</a></li>
           <li class="chapter"><a href="GPT_모델/04_GPT_모델_Python_문법.html" data-doc="true">GPT 모델 Python 문법</a></li>
 
+          <li class="header">사전 학습</li>
+          <li class="chapter"><a href="사전_학습/05_사전_학습_구현_학습.html" data-doc="true">사전 학습 구현 학습</a></li>
+          <li class="chapter"><a href="사전_학습/05_사전_학습_유틸리티.html" data-doc="true">사전 학습 유틸리티</a></li>
+
           <li class="header">과제 자료</li>
           <li class="chapter"><a href="과제_매핑/textbook-test-mapping.md" data-doc="true">교재와 테스트 매핑</a></li>
         </ul>
@@ -402,6 +409,21 @@
             </article>
           </div>
 
+          <h2>사전 학습</h2>
+          <div class="doc-grid">
+            <article class="doc-card">
+              <strong>사전 학습 구현 학습</strong>
+              <p>GPT 사전 학습의 loss shape, 평가 모드, generation 전략, checkpoint, 구현 순서를 기존 학습 문서 스타일로 설명합니다.</p>
+              <a href="사전_학습/05_사전_학습_구현_학습.html" data-doc="true">문서 열기</a>
+            </article>
+
+            <article class="doc-card">
+              <strong>사전 학습 유틸리티</strong>
+              <p>loss 계산, checkpoint 저장/복원, temperature/top-k generation, train loop를 ch05와 테스트 기준으로 설명합니다.</p>
+              <a href="사전_학습/05_사전_학습_유틸리티.html" data-doc="true">문서 열기</a>
+            </article>
+          </div>
+
           <h2>과제 자료</h2>
           <ul class="quick-list">
             <li>
@@ -416,6 +438,7 @@
             <li><code>docs/Dataset_InputEmbedding/</code>: Dataset과 embedding 구현 학습 문서</li>
             <li><code>docs/MultiHeadAttention/</code>: causal multi-head self-attention 구현 학습 문서</li>
             <li><code>docs/GPT_모델/</code>: GPT 모델 구성 요소 구현 학습 문서</li>
+            <li><code>docs/사전_학습/</code>: GPT 사전 학습 유틸리티 구현 학습 문서</li>
             <li><code>docs/과제_매핑/</code>: 과제 진행 보조 자료</li>
           </ul>
         </section>

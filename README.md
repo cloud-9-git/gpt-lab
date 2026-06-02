@@ -77,6 +77,38 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
+로컬에서 사전 학습까지 바로 실행하려면 먼저 데이터를 준비한 뒤 실행 스크립트를 사용합니다.
+
+```bash
+python download_data.py
+python scripts/pretrain_local.py --epochs 1 --batch-size 8 --context-length 64
+```
+
+처음 실행하면 `data/tokenizer.json`, `data/train_token_ids.pt`, `data/val_token_ids.pt`를 만듭니다.
+다음 실행부터는 저장된 tokenizer와 token ID 캐시를 재사용하므로 학습 준비 시간이 줄어듭니다.
+텍스트 데이터나 tokenizer 설정을 바꿨다면 캐시를 다시 만들기 위해 `--force-retokenize`를 붙이거나 기존 `.pt` 캐시 파일을 삭제하세요.
+
+CPU에서 실행 여부만 빠르게 확인하려면 작은 설정으로 일부 batch만 돌릴 수 있습니다.
+
+```bash
+python scripts/pretrain_local.py \
+  --vocab-size 260 \
+  --context-length 16 \
+  --emb-dim 32 \
+  --n-heads 4 \
+  --n-layers 1 \
+  --batch-size 2 \
+  --epochs 1 \
+  --eval-freq 1 \
+  --eval-iter 1 \
+  --max-train-batches 2 \
+  --max-val-batches 2 \
+  --tokenizer-path data/smoke_tokenizer.json \
+  --train-token-cache data/smoke_train_token_ids.pt \
+  --val-token-cache data/smoke_val_token_ids.pt \
+  --force-retokenize
+```
+
 ---
 
 ## 4. 프로젝트 소스

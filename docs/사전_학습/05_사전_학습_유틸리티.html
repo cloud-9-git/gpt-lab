@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>05_사전 학습 유틸리티</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #667085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --bad: #9f1239;
+      --bad-soft: #ffe4e6;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 880px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0f172a;
+      background: #edf1f7;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 15px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f4fa;
+    }
+
+    .note,
+    .warn,
+    .ok {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #17436d;
+      background: var(--accent-soft);
+      border-color: #bfdbfe;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f6d365;
+    }
+
+    .ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #abefcf;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 16px;
+      color: #243041;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+    }
+
+    .card strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>05. 사전 학습 유틸리티</h1>
+      <p>
+        <code>src/train.py</code>의 loss 계산, checkpoint, sampling generation, training loop를 교재 ch05 흐름과
+        <code>tests/test_train.py</code> 기준으로 연결해서 이해하는 문서입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">목표</a>
+      <a href="#loss">Loss 계산</a>
+      <a href="#loader">Loader 평균</a>
+      <a href="#checkpoint">Checkpoint</a>
+      <a href="#generate">Generate</a>
+      <a href="#loop">Train Loop</a>
+      <a href="#cache">Token Cache</a>
+      <a href="#tests">테스트</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 이번 과제의 위치</h2>
+      <p>
+        앞 과제까지는 GPT 모델이 <code>idx</code>를 받아 <code>logits</code>를 만들고, targets가 있으면 loss를
+        반환하는 구조를 만들었습니다. 이번 과제는 그 모델을 실제 사전 학습에 쓸 수 있도록 주변 유틸리티를 붙입니다.
+      </p>
+
+      <div class="diagram">데이터 로더
+  -> input_batch, target_batch
+  -> calc_loss_batch
+  -> backward / optimizer.step
+  -> 주기적 평가
+  -> 샘플 생성
+  -> checkpoint 저장</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>구현 함수</th>
+            <th>역할</th>
+            <th>테스트 포인트</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>calc_loss_batch</code></td>
+            <td>한 배치의 다음 토큰 예측 loss 계산</td>
+            <td>scalar Tensor 반환</td>
+          </tr>
+          <tr>
+            <td><code>calc_loss_loader</code></td>
+            <td>여러 배치 loss 평균 계산</td>
+            <td>float 또는 scalar Tensor 반환</td>
+          </tr>
+          <tr>
+            <td><code>save_checkpoint</code>, <code>load_checkpoint</code></td>
+            <td>model/optimizer/epoch/step 저장과 복원</td>
+            <td>epoch와 global_step 복원</td>
+          </tr>
+          <tr>
+            <td><code>generate</code></td>
+            <td>temperature와 top-k를 지원하는 토큰 생성</td>
+            <td>요청한 토큰 수만큼 길이 증가</td>
+          </tr>
+          <tr>
+            <td><code>train_model</code></td>
+            <td>사전 학습 루프 실행</td>
+            <td>노트북/실행 흐름에서 검증</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        참고 범위: <code>docs/LLM.txt</code>의 ch05 중 5.1 텍스트 생성 모델 평가, 5.2 LLM 훈련,
+        5.3 디코딩 전략, 5.4 저장과 로드 흐름을 이 과제 구조에 맞게 압축했습니다.
+      </div>
+    </section>
+
+    <section id="loss">
+      <h2>2. 한 배치 Loss 계산</h2>
+      <p>
+        GPT 사전 학습의 정답은 별도 라벨이 아니라 입력 토큰을 한 칸 민 target입니다. 예를 들어 입력이
+        <code>[A, B, C]</code>이면 target은 <code>[B, C, D]</code>입니다. 모델은 각 위치에서 다음 토큰 후보 전체에 대한
+        점수, 즉 logits를 냅니다.
+      </p>
+
+      <div class="diagram">input_batch:  (B, T)
+target_batch: (B, T)
+
+model(input_batch)
+  -> logits: (B, T, vocab_size)
+
+cross_entropy가 원하는 모양:
+  logits:  (B*T, vocab_size)
+  targets: (B*T)</div>
+
+      <p>
+        그래서 <code>calc_loss_batch</code>는 세 단계로 생각하면 됩니다.
+      </p>
+
+      <ol>
+        <li><code>input_batch</code>와 <code>target_batch</code>를 <code>device</code>로 옮깁니다.</li>
+        <li><code>model(input_batch)</code>를 호출해서 <code>logits</code>를 얻습니다.</li>
+        <li><code>logits</code>와 targets를 펼쳐 <code>torch.nn.functional.cross_entropy</code>에 넣습니다.</li>
+      </ol>
+
+      <pre><code class="language-python">def calc_loss_batch(input_batch, target_batch, model, device):
+    input_batch = input_batch.to(device)
+    target_batch = target_batch.to(device)
+
+    logits = model(input_batch)
+    loss = torch.nn.functional.cross_entropy(
+        logits.flatten(0, 1),
+        target_batch.flatten(),
+    )
+    return loss</code></pre>
+
+      <div class="warn">
+        <strong>주의:</strong> <code>cross_entropy</code>에는 softmax를 미리 적용하지 않습니다.
+        이 함수가 logits에 대해 softmax와 음의 로그 확률 계산을 내부에서 처리합니다.
+      </div>
+    </section>
+
+    <section id="loader">
+      <h2>3. Loader 평균 Loss</h2>
+      <p>
+        검증 loss는 한 배치만 보면 흔들릴 수 있으므로 여러 배치의 평균으로 봅니다. 교재 ch05의 흐름도
+        <code>calc_loss_batch</code>를 여러 번 호출해 누적한 뒤 평균을 냅니다.
+      </p>
+
+      <pre><code class="language-python">def calc_loss_loader(data_loader, model, device, num_batches=None):
+    if len(data_loader) == 0:
+        return float("nan")
+
+    if num_batches is None:
+        num_batches = len(data_loader)
+    else:
+        num_batches = min(num_batches, len(data_loader))
+
+    total_loss = 0.0
+    for i, (input_batch, target_batch) in enumerate(data_loader):
+        if i >= num_batches:
+            break
+        loss = calc_loss_batch(input_batch, target_batch, model, device)
+        total_loss += loss.item()
+
+    return total_loss / num_batches</code></pre>
+
+      <div class="note">
+        평가에서는 바깥쪽에서 <code>model.eval()</code>과 <code>torch.no_grad()</code>를 같이 쓰면 dropout과 gradient 기록을 끌 수 있습니다.
+        이 과제 주석도 검증에서 <code>torch.no_grad()</code> 사용을 강조합니다.
+      </div>
+    </section>
+
+    <section id="checkpoint">
+      <h2>4. Checkpoint 저장과 복원</h2>
+      <p>
+        모델 가중치만 저장하면 추론은 가능하지만, 학습을 정확히 이어가려면 optimizer 상태도 필요합니다.
+        AdamW 같은 optimizer는 파라미터별 이동 평균 등 내부 상태를 들고 있기 때문입니다.
+      </p>
+
+      <div class="diagram">checkpoint = {
+  "model_state_dict": model.state_dict(),
+  "optimizer_state_dict": optimizer.state_dict(),
+  "epoch": epoch,
+  "global_step": global_step,
+}</div>
+
+      <pre><code class="language-python">def save_checkpoint(model, optimizer, epoch, global_step, path):
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "epoch": epoch,
+            "global_step": global_step,
+        },
+        path,
+    )</code></pre>
+
+      <pre><code class="language-python">def load_checkpoint(model, optimizer, path, device):
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+
+    if optimizer is not None and "optimizer_state_dict" in checkpoint:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    return checkpoint.get("epoch", 0), checkpoint.get("global_step", 0)</code></pre>
+
+      <div class="ok">
+        테스트는 checkpoint 저장 후 새 모델/optimizer에 로드했을 때 <code>epoch == 1</code>,
+        <code>global_step == 10</code>이 복원되는지 확인합니다.
+      </div>
+    </section>
+
+    <section id="generate">
+      <h2>5. Temperature와 Top-k Generate</h2>
+      <p>
+        <code>generate_text_simple</code>은 항상 가장 큰 logit을 고르는 greedy 방식입니다. 이번 <code>generate</code>는
+        temperature와 top-k를 추가해서 더 다양한 출력을 만들 수 있게 합니다.
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <strong>temperature == 0 또는 0 이하</strong>
+          <p><code>argmax</code>로 가장 큰 logit을 고릅니다. 결정론적입니다.</p>
+        </div>
+        <div class="card">
+          <strong>temperature &gt; 0</strong>
+          <p>logits를 temperature로 나누고 softmax 후 <code>torch.multinomial</code>로 샘플링합니다.</p>
+        </div>
+        <div class="card">
+          <strong>top_k</strong>
+          <p>상위 k개 후보만 남기고 나머지는 <code>-inf</code>로 마스킹합니다.</p>
+        </div>
+      </div>
+
+      <pre><code class="language-python">def generate(model, idx, max_new_tokens, context_size,
+             temperature=1.0, top_k=None, eos_id=None):
+    for _ in range(max_new_tokens):
+        idx_cond = idx[:, -context_size:]
+
+        with torch.no_grad():
+            logits = model(idx_cond)
+
+        if isinstance(logits, tuple):
+            logits = logits[1]
+
+        logits = logits[:, -1, :]
+
+        if top_k is not None:
+            top_logits, _ = torch.topk(logits, top_k)
+            min_val = top_logits[:, -1].unsqueeze(-1)
+            logits = torch.where(
+                logits &lt; min_val,
+                torch.full_like(logits, float("-inf")),
+                logits,
+            )
+
+        if temperature &gt; 0:
+            probs = torch.softmax(logits / temperature, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+        else:
+            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+
+        if eos_id is not None and (idx_next == eos_id).all():
+            break
+
+        idx = torch.cat((idx, idx_next), dim=1)
+
+    return idx</code></pre>
+
+      <div class="warn">
+        <strong>batch 처리 주의:</strong> <code>idx_next == eos_id</code>는 Tensor입니다.
+        batch 크기가 1인 테스트에서는 단순 비교도 통과할 수 있지만, 안정적으로는 <code>.all()</code> 또는
+        <code>.any()</code> 기준을 정해서 처리하는 편이 낫습니다.
+      </div>
+    </section>
+
+    <section id="loop">
+      <h2>6. Train Loop 흐름</h2>
+      <p>
+        교재 ch05의 학습 루프는 평범한 PyTorch 훈련 흐름입니다. 매 배치마다 loss를 계산하고, gradient를 만들고,
+        optimizer로 가중치를 갱신합니다. 일정 step마다 train/val loss를 평가하고, epoch 끝에는 샘플 텍스트를 생성합니다.
+      </p>
+
+      <div class="diagram">for epoch:
+  model.train()
+  for input_batch, target_batch in train_loader:
+    optimizer.zero_grad()
+    loss = calc_loss_batch(...)
+    loss.backward()
+    optimizer.step()
+    global_step += 1
+
+    if global_step % eval_freq == 0:
+      model.eval()
+      with torch.no_grad():
+        train_loss = calc_loss_loader(...)
+        val_loss = calc_loss_loader(...)
+      model.train()
+
+  generate_and_print_sample(...)</div>
+
+      <p>
+        이 과제의 <code>train_model</code>은 반환 타입이 <code>list[float]</code>입니다. 템플릿 주석도
+        “epoch별 train loss 리스트”를 반환하라고 되어 있으므로, 최소한 epoch마다 train loss를 기록해서 반환하면 됩니다.
+        필요하면 내부에서 validation loss도 출력하거나 별도 리스트로 관리할 수 있습니다.
+      </p>
+
+      <h3><code>generate_and_print_sample</code></h3>
+      <p>
+        tokenizer는 구현체마다 메서드 이름이 다를 수 있습니다. 이 저장소의 BPE tokenizer는 일반적으로
+        <code>encode</code>와 <code>decode</code>를 사용합니다.
+      </p>
+
+      <pre><code class="language-python">def generate_and_print_sample(model, tokenizer, device, start_context,
+                              max_new_tokens=50, context_size=256,
+                              temperature=0.8, top_k=40):
+    model.eval()
+    encoded = torch.tensor(
+        tokenizer.encode(start_context),
+        dtype=torch.long,
+        device=device,
+    ).unsqueeze(0)
+
+    with torch.no_grad():
+        token_ids = generate(
+            model,
+            encoded,
+            max_new_tokens=max_new_tokens,
+            context_size=context_size,
+            temperature=temperature,
+            top_k=top_k,
+        )
+
+    decoded = tokenizer.decode(token_ids[0].tolist())
+      print(decoded.replace("\n", " "))
+    model.train()</code></pre>
+    </section>
+
+    <section id="cache">
+      <h2>7. Token ID 미리 저장하기</h2>
+      <p>
+        Colab에서 런타임을 다시 시작할 때마다 긴 corpus를 다시 encode하면 시간이 아깝습니다.
+        <code>get_or_create_token_ids</code>는 캐시 파일이 있으면 바로 읽고, 없으면 encode 후 저장합니다.
+      </p>
+
+      <pre><code class="language-python">from train import get_or_create_token_ids
+
+token_ids = get_or_create_token_ids(
+    corpus=train_text,
+    tokenizer=tokenizer,
+    cache_path="data/train_token_ids.pt",
+)</code></pre>
+
+      <p>
+        검증 데이터도 같은 방식으로 따로 저장할 수 있습니다.
+      </p>
+
+      <pre><code class="language-python">val_token_ids = get_or_create_token_ids(
+    corpus=val_text,
+    tokenizer=tokenizer,
+    cache_path="data/val_token_ids.pt",
+)</code></pre>
+    </section>
+
+    <section id="tests">
+      <h2>8. 테스트 기준과 실행 명령</h2>
+
+      <h3>개별 테스트</h3>
+      <pre><code class="language-bash">python3 -m pytest tests/test_train.py::TestCalcLossBatch::test_calc_loss_batch_returns_scalar -v
+python3 -m pytest tests/test_train.py::TestCalcLossLoader::test_calc_loss_loader_returns_float -v
+python3 -m pytest tests/test_train.py::TestCheckpoint::test_save_load_checkpoint_restores_epoch_and_step -v
+python3 -m pytest tests/test_train.py::TestGenerate::test_generate_shape -v
+python3 -m pytest tests/test_train.py::TestPlotLosses::test_plot_losses_callable -v</code></pre>
+
+      <h3>파일 단위 테스트</h3>
+      <pre><code class="language-bash">python3 -m pytest tests/test_train.py -v</code></pre>
+
+      <div class="warn">
+        현재 로컬 Python에 <code>pytest</code>나 <code>torch</code>가 없으면 테스트 명령이 바로 실패합니다.
+        그때는 먼저 <code>python3 -m pip install -r requirements.txt</code>로 의존성을 맞춘 뒤 실행하세요.
+      </div>
+
+      <h3>자주 틀리는 지점</h3>
+      <ul>
+        <li><code>cross_entropy</code> 전에 softmax를 적용하는 실수</li>
+        <li><code>target_batch</code>를 device로 옮기지 않는 실수</li>
+        <li><code>num_batches</code>가 loader 길이보다 클 때 그대로 순회하려는 실수</li>
+        <li>checkpoint에 optimizer state나 global step을 빼먹는 실수</li>
+        <li>top-k에서 <code>min_val</code> shape를 <code>(B, 1)</code>로 맞추지 않는 실수</li>
+        <li>생성 중 <code>logits[:, -1, :]</code>로 마지막 위치만 고르지 않는 실수</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      원문 참고: <code>docs/LLM.txt</code> ch05. 이 문서는 과제 구현과 테스트 통과를 위해 핵심 흐름만 재구성했습니다.
+    </p>
+  </footer>
+</body>
+</html>

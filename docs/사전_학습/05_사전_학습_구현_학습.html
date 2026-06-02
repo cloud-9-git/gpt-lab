@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>05_사전 학습 구현 학습</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #667085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --bad: #9f1239;
+      --bad-soft: #ffe4e6;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 880px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0f172a;
+      background: #edf1f7;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 15px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f4fa;
+    }
+
+    .note,
+    .warn,
+    .ok {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #17436d;
+      background: var(--accent-soft);
+      border-color: #bfdbfe;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f6d365;
+    }
+
+    .ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #abefcf;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 16px;
+      color: #243041;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>05_사전 학습 구현 학습</h1>
+      <p>
+        GPT 모델을 실제로 학습시키기 위해 loss 계산, 평가, 샘플 생성, checkpoint 저장과 복원을
+        어떻게 연결하는지 차근차근 정리합니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">목표</a>
+      <a href="#flow">전체 흐름</a>
+      <a href="#loss">Loss</a>
+      <a href="#eval">평가</a>
+      <a href="#generate">생성</a>
+      <a href="#checkpoint">저장/복원</a>
+      <a href="#cache">Token Cache</a>
+      <a href="#order">구현 순서</a>
+      <a href="#tests">테스트</a>
+    </nav>
+
+    <section id="goal">
+      <h2>1. 이 과제에서 만드는 것</h2>
+      <p>
+        <code>src/train.py</code>는 GPT 모델 자체가 아니라, 모델을 훈련하고 평가하고 저장하기 위한 도구들을 담습니다.
+        교재 ch05에서는 이 단계에서 텍스트 생성 모델의 loss를 계산하고, 모델을 학습시키고, 생성 방식을 다양화하고,
+        나중에 이어서 학습할 수 있도록 상태를 저장합니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>함수</th>
+            <th>하는 일</th>
+            <th>왜 필요한가</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>calc_loss_batch</code></td>
+            <td>한 batch의 다음 토큰 예측 loss 계산</td>
+            <td>학습에서 줄여야 할 값을 만든다</td>
+          </tr>
+          <tr>
+            <td><code>calc_loss_loader</code></td>
+            <td>여러 batch의 평균 loss 계산</td>
+            <td>train/validation 성능을 비교한다</td>
+          </tr>
+          <tr>
+            <td><code>save_checkpoint</code></td>
+            <td>모델, optimizer, epoch, step 저장</td>
+            <td>학습을 중단한 지점에서 이어갈 수 있다</td>
+          </tr>
+          <tr>
+            <td><code>load_checkpoint</code></td>
+            <td>저장한 checkpoint 복원</td>
+            <td>같은 학습 상태를 다시 만든다</td>
+          </tr>
+          <tr>
+            <td><code>generate</code></td>
+            <td>temperature/top-k 생성</td>
+            <td>항상 같은 토큰만 고르지 않게 조절한다</td>
+          </tr>
+          <tr>
+            <td><code>train_model</code></td>
+            <td>전체 사전 학습 루프</td>
+            <td>loss 계산, 역전파, 평가, 샘플 출력을 묶는다</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="flow">
+      <h2>2. 사전 학습 전체 흐름</h2>
+      <p>
+        GPT 사전 학습은 레이블이 따로 있는 분류 문제가 아닙니다. 입력 토큰을 한 칸 민 target을 정답으로 삼아
+        “다음 토큰 맞히기”를 반복합니다.
+      </p>
+
+      <div class="diagram">token ids
+  input:  [A, B, C, D]
+  target: [B, C, D, E]
+
+model(input)
+  -> logits: 각 위치마다 vocab 전체에 대한 점수
+
+loss(logits, target)
+  -> 정답 다음 토큰의 점수가 높아지도록 학습</div>
+
+      <p>
+        한 epoch 안에서는 DataLoader가 여러 batch를 내보내고, 모델은 각 batch마다 loss를 계산합니다.
+        <code>loss.backward()</code>는 gradient를 만들고, <code>optimizer.step()</code>은 그 gradient를 사용해 파라미터를 갱신합니다.
+      </p>
+
+      <div class="diagram">for epoch:
+  for input_batch, target_batch in train_loader:
+    loss 계산
+    gradient 계산
+    optimizer로 weight 업데이트
+  validation loss 확인
+  샘플 텍스트 생성</div>
+    </section>
+
+    <section id="loss">
+      <h2>3. Loss 계산 이해하기</h2>
+
+      <h3>3.1 logits와 targets shape</h3>
+      <p>
+        모델 출력인 <code>logits</code>는 <code>(B, T, V)</code>입니다. 여기서 <code>B</code>는 batch size,
+        <code>T</code>는 토큰 길이, <code>V</code>는 vocabulary size입니다.
+      </p>
+
+      <div class="diagram">input_batch:  (B, T)
+target_batch: (B, T)
+logits:       (B, T, V)</div>
+
+      <p>
+        <code>torch.nn.functional.cross_entropy</code>는 보통 <code>(N, C)</code> 형태의 예측과
+        <code>(N)</code> 형태의 정답을 받습니다. 그래서 앞의 두 차원 <code>B</code>와 <code>T</code>를 하나로 합칩니다.
+      </p>
+
+      <div class="diagram">logits:  (B, T, V) -> (B*T, V)
+targets: (B, T)    -> (B*T)</div>
+
+      <h3>3.2 한 batch loss</h3>
+      <p>
+        <code>calc_loss_batch</code>는 batch를 device로 옮긴 뒤, 모델을 호출하고, logits와 target을 펼쳐 loss를 계산합니다.
+      </p>
+
+      <pre><code class="language-python">input_batch = input_batch.to(device)
+target_batch = target_batch.to(device)
+
+logits = model(input_batch)
+loss = torch.nn.functional.cross_entropy(
+    logits.flatten(0, 1),
+    target_batch.flatten(),
+)</code></pre>
+
+      <div class="warn">
+        <code>cross_entropy</code>에는 softmax를 적용한 확률이 아니라 raw logits를 넣습니다.
+        PyTorch가 내부에서 softmax에 해당하는 계산까지 처리합니다.
+      </div>
+    </section>
+
+    <section id="eval">
+      <h2>4. Train Loss와 Validation Loss</h2>
+      <p>
+        train loss는 모델이 학습한 데이터에서 얼마나 잘 맞히는지 보여 줍니다. validation loss는 학습에 직접 사용하지 않은
+        데이터에서 얼마나 잘 맞히는지 보여 줍니다. 둘을 같이 봐야 모델이 일반화하는지, 아니면 훈련 데이터를 외우는지 알 수 있습니다.
+      </p>
+
+      <div class="diagram">train loss 내려감
+validation loss 같이 내려감
+  -> 학습이 잘 진행되는 중
+
+train loss 계속 내려감
+validation loss 멈추거나 올라감
+  -> 과대적합 가능성</div>
+
+      <h3>4.1 loader 평균 loss</h3>
+      <p>
+        <code>calc_loss_loader</code>는 DataLoader에서 batch를 여러 개 꺼내고, 각 batch의 loss를 더한 뒤 평균을 냅니다.
+        <code>num_batches</code>가 주어지면 전체 loader가 아니라 일부 batch만 평가할 수 있습니다.
+      </p>
+
+      <div class="diagram">total_loss = 0
+for batch in data_loader:
+  batch_loss = calc_loss_batch(...)
+  total_loss += batch_loss
+
+avg_loss = total_loss / batch_count</div>
+
+      <h3>4.2 eval 모드와 no_grad</h3>
+      <p>
+        평가할 때는 weight를 업데이트하지 않습니다. 그래서 <code>torch.no_grad()</code>로 gradient 기록을 끄고,
+        <code>model.eval()</code>로 dropout 같은 훈련 전용 동작을 끕니다.
+      </p>
+
+      <pre><code class="language-python">model.eval()
+with torch.no_grad():
+    train_loss = calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
+    val_loss = calc_loss_loader(val_loader, model, device, num_batches=eval_iter)
+model.train()</code></pre>
+    </section>
+
+    <section id="generate">
+      <h2>5. 생성 전략 이해하기</h2>
+      <p>
+        <code>generate_text_simple</code>은 마지막 위치의 logits에서 가장 큰 값을 고르는 greedy decoding입니다.
+        이번 과제의 <code>generate</code>는 여기에 temperature와 top-k sampling을 추가합니다.
+      </p>
+
+      <h3>5.1 마지막 위치 logits만 보는 이유</h3>
+      <div class="diagram">idx = [A, B, C, D]
+
+logits[:, 0, :] -> A 다음 예측
+logits[:, 1, :] -> A B 다음 예측
+logits[:, 2, :] -> A B C 다음 예측
+logits[:, 3, :] -> A B C D 다음 예측
+
+생성에서 필요한 것:
+  A B C D 다음에 붙일 토큰
+
+따라서:
+  logits = logits[:, -1, :]</div>
+
+      <h3>5.2 temperature</h3>
+      <p>
+        temperature는 logits를 나누는 값입니다. 낮은 temperature는 확률분포를 뾰족하게 만들어 가장 유력한 토큰을 더 자주 고르게 합니다.
+        높은 temperature는 분포를 더 평평하게 만들어 다양한 토큰이 나올 가능성을 키웁니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>설정</th>
+            <th>동작</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>temperature &lt;= 0</code></td>
+            <td><code>argmax</code>로 가장 큰 logit 선택</td>
+          </tr>
+          <tr>
+            <td><code>temperature = 1</code></td>
+            <td>logits를 그대로 softmax 후 샘플링</td>
+          </tr>
+          <tr>
+            <td><code>temperature &gt; 1</code></td>
+            <td>더 다양한 토큰이 선택될 가능성 증가</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>5.3 top-k</h3>
+      <p>
+        top-k는 가장 점수가 높은 k개 토큰만 후보로 남기고 나머지는 <code>-inf</code>로 바꿉니다.
+        softmax 뒤에는 <code>-inf</code>였던 위치의 확률이 0이 됩니다.
+      </p>
+
+      <div class="diagram">logits
+[4.5, 0.8, -1.9, 6.7, 1.6, 6.2]
+
+top_k = 3
+[4.5, -inf, -inf, 6.7, -inf, 6.2]
+
+softmax
+[확률 있음, 0, 0, 확률 있음, 0, 확률 있음]</div>
+    </section>
+
+    <section id="checkpoint">
+      <h2>6. Checkpoint 이해하기</h2>
+      <p>
+        모델을 저장할 때는 <code>model.state_dict()</code>만 저장할 수도 있습니다. 하지만 훈련을 이어가려면
+        optimizer 상태, 현재 epoch, global step도 같이 저장하는 편이 안전합니다.
+      </p>
+
+      <div class="diagram">저장할 것
+  model_state_dict
+  optimizer_state_dict
+  epoch
+  global_step</div>
+
+      <p>
+        <code>load_checkpoint</code>는 저장된 dict를 읽고, 모델에는 model state를 넣고, optimizer가 주어진 경우에는
+        optimizer state도 복원합니다. 마지막으로 epoch와 global step을 반환합니다.
+      </p>
+
+      <div class="note">
+        테스트에서는 저장한 checkpoint를 새 모델과 새 optimizer에 로드한 뒤 epoch와 step이 그대로 돌아오는지 확인합니다.
+      </div>
+    </section>
+
+    <section id="cache">
+      <h2>7. Token ID 캐시</h2>
+      <p>
+        사전 학습을 Colab에서 반복 실행할 때 corpus를 매번 <code>tokenizer.encode()</code>하면 준비 시간이 낭비됩니다.
+        한 번 token ID 리스트로 바꾼 뒤 파일로 저장해두면, 다음 실행부터는 저장된 ID를 바로 읽어서 DataLoader를 만들 수 있습니다.
+      </p>
+
+      <div class="diagram">첫 실행
+  corpus text
+  -> tokenizer.encode(corpus)
+  -> token_ids 저장
+  -> DataLoader 생성
+
+다음 실행
+  저장된 token_ids 로드
+  -> DataLoader 생성</div>
+
+      <pre><code class="language-python">from train import get_or_create_token_ids
+from dataset import create_dataloader
+
+token_ids = get_or_create_token_ids(
+    corpus=train_text,
+    tokenizer=tokenizer,
+    cache_path="data/train_token_ids.pt",
+)
+
+train_loader = create_dataloader(
+    token_ids,
+    context_length=config["context_length"],
+    batch_size=16,
+    stride=config["context_length"],
+)</code></pre>
+
+      <div class="note">
+        토크나이저의 vocab/merge rule 저장은 “토크나이저 학습”을 건너뛰게 해주고,
+        token_ids 저장은 “긴 텍스트 encode”를 건너뛰게 해줍니다. 학습 준비 시간을 줄이는 데 직접적인 것은 token_ids 캐시입니다.
+      </div>
+    </section>
+
+    <section id="order">
+      <h2>8. 추천 구현 순서</h2>
+      <ol>
+        <li><code>calc_loss_batch</code>를 먼저 구현하고 scalar loss가 나오는지 확인합니다.</li>
+        <li><code>calc_loss_loader</code>를 구현해서 여러 batch 평균을 계산합니다.</li>
+        <li><code>save_checkpoint</code>, <code>load_checkpoint</code>를 구현합니다.</li>
+        <li><code>generate</code>를 greedy 방식으로 먼저 만들고, top-k와 temperature를 추가합니다.</li>
+        <li><code>generate_and_print_sample</code>에서 encode, generate, decode 흐름을 연결합니다.</li>
+        <li><code>train_model</code>에서 학습 루프, 평가, 샘플 출력, checkpoint 저장을 연결합니다.</li>
+      </ol>
+
+      <h3>train_model의 기본 뼈대</h3>
+      <pre><code class="language-python">train_losses = []
+
+for epoch in range(start_epoch, start_epoch + num_epochs):
+    model.train()
+
+    for input_batch, target_batch in train_loader:
+        optimizer.zero_grad()
+        loss = calc_loss_batch(input_batch, target_batch, model, device)
+        loss.backward()
+        optimizer.step()
+        global_step += 1
+
+        if global_step % eval_freq == 0:
+            model.eval()
+            with torch.no_grad():
+                train_loss = calc_loss_loader(train_loader, model, device, eval_iter)
+                val_loss = calc_loss_loader(val_loader, model, device, eval_iter)
+            model.train()
+
+    train_losses.append(train_loss)
+    generate_and_print_sample(...)
+
+return train_losses</code></pre>
+    </section>
+
+    <section id="tests">
+      <h2>9. 테스트를 읽는 법</h2>
+      <p>
+        <code>tests/test_train.py</code>는 각 함수가 완벽한 훈련 성능을 내는지 보지 않습니다.
+        우선 shape, 반환 타입, 저장/복원 동작이 맞는지 확인합니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>테스트</th>
+            <th>확인하는 것</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>TestCalcLossBatch</code></td>
+            <td>loss가 0차원 scalar Tensor인지</td>
+          </tr>
+          <tr>
+            <td><code>TestCalcLossLoader</code></td>
+            <td>평균 loss가 float 또는 scalar Tensor인지</td>
+          </tr>
+          <tr>
+            <td><code>TestCheckpoint</code></td>
+            <td>epoch와 global step이 복원되는지</td>
+          </tr>
+          <tr>
+            <td><code>TestGenerate</code></td>
+            <td>생성 결과 길이가 <code>max_new_tokens</code>만큼 늘어나는지</td>
+          </tr>
+          <tr>
+            <td><code>TestPlotLosses</code></td>
+            <td>그래프 함수가 예외 없이 호출되는지</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>함수 단위 테스트</h3>
+      <pre><code class="language-bash">python3 -m pytest tests/test_train.py::TestCalcLossBatch::test_calc_loss_batch_returns_scalar -v
+python3 -m pytest tests/test_train.py::TestCalcLossLoader::test_calc_loss_loader_returns_float -v
+python3 -m pytest tests/test_train.py::TestCheckpoint::test_save_load_checkpoint_restores_epoch_and_step -v
+python3 -m pytest tests/test_train.py::TestGenerate::test_generate_shape -v</code></pre>
+
+      <h3>최종 실행</h3>
+      <pre><code class="language-bash">python3 -m pytest tests/test_train.py -v</code></pre>
+    </section>
+
+    <section>
+      <h2>10. 자주 막히는 곳</h2>
+
+      <h3>1. logits를 펼치지 않고 loss에 넣음</h3>
+      <p>
+        <code>cross_entropy</code>에 넣기 전에 <code>(B, T, V)</code>를 <code>(B*T, V)</code>로,
+        target의 <code>(B, T)</code>를 <code>(B*T)</code>로 바꿔야 합니다.
+      </p>
+
+      <h3>2. 평가 중에도 gradient를 기록함</h3>
+      <p>
+        validation loss 계산에는 <code>torch.no_grad()</code>를 사용하세요. 학습하지 않는데 기록을 남기면 메모리와 시간이 낭비됩니다.
+      </p>
+
+      <h3>3. top-k의 기준값 shape가 맞지 않음</h3>
+      <p>
+        batch마다 top-k 기준값이 다르므로 <code>top_logits[:, -1]</code>만 쓰지 말고,
+        비교가 잘 broadcast되도록 <code>unsqueeze(-1)</code>를 붙이는 편이 안전합니다.
+      </p>
+
+      <h3>4. optimizer state를 저장하지 않음</h3>
+      <p>
+        모델 weight만 복원하면 추론은 가능하지만, 학습을 이어갈 때 optimizer의 내부 상태가 사라집니다.
+      </p>
+
+      <h3>5. <code>model.train()</code>으로 되돌리지 않음</h3>
+      <p>
+        평가나 샘플 생성 후에는 다시 학습 모드로 돌려야 dropout 같은 훈련 동작이 정상적으로 적용됩니다.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      원문 참고: <code>docs/LLM.txt</code> ch05. 이 문서는 기존 학습 문서의 흐름에 맞춰 개념, shape, 구현 순서, 테스트 기준을 정리했습니다.
+    </p>
+  </footer>
+</body>
+</html>
