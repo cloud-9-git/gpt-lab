@@ -42,10 +42,28 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="mini GPT local pretraining")
     parser.add_argument("--train-text", default="data/nsmc_lm_train.txt")
     parser.add_argument("--val-text", default="data/nsmc_lm_val.txt")
+    parser.add_argument(
+        "--train-chars",
+        type=int,
+        default=0,
+        help="학습 텍스트 앞쪽 문자 수. 0 이하이면 전체 학습 텍스트를 사용합니다.",
+    )
+    parser.add_argument(
+        "--val-chars",
+        type=int,
+        default=0,
+        help="검증 텍스트 앞쪽 문자 수. 0 이하이면 전체 검증 텍스트를 사용합니다.",
+    )
     parser.add_argument("--tokenizer-path", default="data/tokenizer.json")
     parser.add_argument("--train-token-cache", default="data/train_token_ids.pt")
     parser.add_argument("--val-token-cache", default="data/val_token_ids.pt")
     parser.add_argument("--force-retokenize", action="store_true")
+    parser.add_argument(
+        "--tokenizer-train-chars",
+        type=int,
+        default=300_000,
+        help="토크나이저 학습에 사용할 앞쪽 문자 수. 0 이하이면 전체 텍스트를 사용합니다.",
+    )
 
     parser.add_argument("--vocab-size", type=int, default=3000)
     parser.add_argument("--context-length", type=int, default=64)
@@ -83,15 +101,23 @@ def prepare_tokenizer(args: argparse.Namespace, train_text: str, val_text: str) 
     tokenizer_path = ROOT / args.tokenizer_path
     tokenizer = BPETokenizer(vocab_size=args.vocab_size)
 
-    if tokenizer_path.exists():
+    if tokenizer_path.exists() and not args.force_retokenize:
         tokenizer.load(tokenizer_path)
-        print(f"토크나이저 로드: {tokenizer_path}")
+        print(f"토크나이저 로드: {tokenizer_path}", flush=True)
         return tokenizer
 
-    tokenizer.train(train_text + "\n" + val_text)
+    tokenizer_corpus = train_text + "\n" + val_text
+    if args.tokenizer_train_chars > 0:
+        tokenizer_corpus = tokenizer_corpus[: args.tokenizer_train_chars]
+    print(
+        f"토크나이저 학습 시작: vocab_size={args.vocab_size}, "
+        f"chars={len(tokenizer_corpus):,}",
+        flush=True,
+    )
+    tokenizer.train(tokenizer_corpus)
     tokenizer_path.parent.mkdir(parents=True, exist_ok=True)
     tokenizer.save(tokenizer_path)
-    print(f"토크나이저 학습 및 저장: {tokenizer_path}")
+    print(f"토크나이저 학습 및 저장: {tokenizer_path}", flush=True)
     return tokenizer
 
 
@@ -101,20 +127,30 @@ def main() -> None:
 
     train_text = read_text(args.train_text)
     val_text = read_text(args.val_text)
+    if args.train_chars > 0:
+        train_text = train_text[: args.train_chars]
+        print(f"학습 텍스트 제한: {len(train_text):,} chars", flush=True)
+    if args.val_chars > 0:
+        val_text = val_text[: args.val_chars]
+        print(f"검증 텍스트 제한: {len(val_text):,} chars", flush=True)
     tokenizer = prepare_tokenizer(args, train_text, val_text)
 
+    print(f"train token ID 준비 시작: {ROOT / args.train_token_cache}", flush=True)
     train_ids = get_or_create_token_ids(
         train_text,
         tokenizer,
         ROOT / args.train_token_cache,
         force_retokenize=args.force_retokenize,
     )
+    print(f"train token ID 준비 완료: {len(train_ids):,} tokens", flush=True)
+    print(f"val token ID 준비 시작: {ROOT / args.val_token_cache}", flush=True)
     val_ids = get_or_create_token_ids(
         val_text,
         tokenizer,
         ROOT / args.val_token_cache,
         force_retokenize=args.force_retokenize,
     )
+    print(f"val token ID 준비 완료: {len(val_ids):,} tokens", flush=True)
 
     stride = args.stride if args.stride is not None else args.context_length
     train_loader = create_dataloader(
@@ -158,9 +194,9 @@ def main() -> None:
         device = torch.device("mps")
     else:
         device = torch.device("cpu")
-    print(f"device: {device}")
-    print(f"train batches: {len(train_loader)}, val batches: {len(val_loader)}")
-    print(f"config: {config}")
+    print(f"device: {device}", flush=True)
+    print(f"train batches: {len(train_loader)}, val batches: {len(val_loader)}", flush=True)
+    print(f"config: {config}", flush=True)
 
     model = GPTModel(config).to(device)
     optimizer = torch.optim.AdamW(
@@ -183,7 +219,7 @@ def main() -> None:
         ckpt_freq=args.ckpt_freq,
     )
 
-    print("train_losses:", train_losses)
+    print("train_losses:", train_losses, flush=True)
 
 
 if __name__ == "__main__":
