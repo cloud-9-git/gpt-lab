@@ -139,7 +139,8 @@ class MultiHeadAttention(nn.Module):
         # True면 (out, attn_weights)를 반환한다.
         # 왜? 기본적으로는 attention 출력만 있으면 되지만, 디버깅이나 시각화를 위해 attention weight도 확인할 수 있어야 하기 때문.
 
-        if return_attention_weights == False:
-            return context_vec
-        if return_attention_weights == True:
+        if return_attention_weights:
             return (context_vec, attn_weights)
+        return context_vec
+        # if return_attention_weights == True:
+        
