@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>06_감성 분류 미세 조정 구현 학습</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #202636;
+      --muted: #667085;
+      --line: #dce2ed;
+      --accent: #1864ab;
+      --accent-soft: #e7f2ff;
+      --ok: #116149;
+      --ok-soft: #e4f7ef;
+      --warn: #8a5a00;
+      --warn-soft: #fff4d6;
+      --bad: #9f1239;
+      --bad-soft: #ffe4e6;
+      --code-bg: #101828;
+      --code-ink: #e6edf6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+    }
+
+    header {
+      background: #172033;
+      color: #ffffff;
+      padding: 44px 24px 36px;
+    }
+
+    header .inner,
+    main,
+    footer {
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 900px;
+      margin: 0;
+      color: #d6dde8;
+      font-size: 18px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin: 0 0 24px;
+    }
+
+    nav a {
+      display: block;
+      padding: 12px 14px;
+      color: var(--accent);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    section {
+      margin: 18px 0;
+      padding: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      color: #0f172a;
+      background: #edf1f7;
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 16px;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 8px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+      border-radius: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 15px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f0f4fa;
+    }
+
+    .note,
+    .warn,
+    .ok {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid;
+    }
+
+    .note {
+      color: #17436d;
+      background: var(--accent-soft);
+      border-color: #bfdbfe;
+    }
+
+    .warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: #f6d365;
+    }
+
+    .ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: #abefcf;
+    }
+
+    .diagram {
+      overflow-x: auto;
+      padding: 16px;
+      color: #243041;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    footer {
+      padding: 0 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>06_감성 분류 미세 조정 구현 학습</h1>
+      <p>
+        교재 ch06의 분류 미세 튜닝 흐름을 NSMC 영화 리뷰 감성 분류 과제에 맞춰 바꿔 봅니다.
+        핵심은 GPT가 다음 토큰을 맞히던 모델에서 리뷰 하나의 긍정/부정 label을 맞히는 모델로 바뀐다는 점입니다.
+      </p>
+    </div>
+  </header>
+
+  <main>
+    <nav aria-label="문서 목차">
+      <a href="#goal">무엇을 만드는가</a>
+      <a href="#difference">사전 학습과 차이</a>
+      <a href="#dataset">데이터셋</a>
+      <a href="#model">분류 모델</a>
+      <a href="#train">훈련과 평가</a>
+      <a href="#checklist">구현 순서</a>
+    </nav>
+
+    <section id="goal">
+      <h2>무엇을 만드는가</h2>
+      <p>
+        이번 과제의 구현 파일은 <code>src/finetune.py</code>입니다. 목표는 영화 리뷰 텍스트 하나를 받아
+        <code>0</code> 또는 <code>1</code> 감성 label을 예측하는 분류 모델과 그 모델을 훈련/평가하는 유틸리티를 만드는 것입니다.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>구현 대상</th>
+            <th>역할</th>
+            <th>테스트가 보는 핵심</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>make_sentiment_dataset</code></td>
+            <td>NSMC TSV를 읽어 train/validation/test 데이터를 만듭니다.</td>
+            <td>빈 리뷰 제거, <code>{"text", "label"}</code> 형식, split 개수</td>
+          </tr>
+          <tr>
+            <td><code>ReviewSentimentDataset</code></td>
+            <td>리뷰를 token ID로 바꾸고 <code>max_length</code>에 맞춰 padding/truncation합니다.</td>
+            <td><code>(max_length,)</code> LongTensor와 label 반환</td>
+          </tr>
+          <tr>
+            <td><code>GPTForSequenceClassification</code></td>
+            <td>GPT backbone 위에 감성 분류용 classifier head를 붙입니다.</td>
+            <td>logits shape가 <code>(B, num_labels)</code></td>
+          </tr>
+          <tr>
+            <td><code>train_epoch_sentiment</code>, <code>evaluate_sentiment</code></td>
+            <td>분류 loss와 accuracy로 훈련/평가합니다.</td>
+            <td>호출 가능한 함수, 평균 loss와 accuracy 반환</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="note">
+        교재 ch06은 스팸/스팸 아님 분류를 예제로 씁니다. 우리 과제는 같은 구조를 NSMC 영화 리뷰의 부정/긍정 분류로 바꾸는 것입니다.
+      </div>
+    </section>
+
+    <section id="difference">
+      <h2>사전 학습과 감성 분류의 차이</h2>
+      <p>
+        사전 학습에서는 입력 문장의 모든 위치마다 다음 토큰을 맞힙니다. 그래서 모델 출력은 보통
+        <code>(B, T, vocab_size)</code>이고 target도 <code>(B, T)</code>입니다.
+      </p>
+
+      <p>
+        감성 분류에서는 리뷰 하나마다 label 하나만 맞히면 됩니다. 그래서 최종 출력은
+        <code>(B, num_labels)</code>이고 target은 <code>(B,)</code>입니다.
+      </p>
+
+      <div class="diagram">사전 학습
+input_ids: (B, T)
+GPT logits: (B, T, vocab_size)
+targets:   (B, T)
+loss: 모든 위치의 다음 토큰 예측
+
+감성 분류 미세 조정
+input_ids: (B, T)
+GPT hidden: (B, T, emb_dim)
+last hidden: (B, emb_dim)
+classifier logits: (B, 2)
+labels: (B,)
+loss: 리뷰 하나의 감성 label 예측</div>
+
+      <h3>왜 마지막 token을 보는가</h3>
+      <p>
+        GPT는 causal mask를 사용합니다. 앞쪽 토큰은 뒤쪽 토큰을 볼 수 없지만, 마지막 위치의 hidden state는
+        자기 앞의 모든 토큰을 볼 수 있습니다. 그래서 교재 ch06 흐름처럼 마지막 token 위치의 표현을 문장 대표 벡터로 사용합니다.
+      </p>
+
+      <div class="diagram">리뷰: "이 영화는 정말 좋았다"
+
+위치 0: "이"      -> "이"만 참고
+위치 1: "영화는"  -> "이", "영화는" 참고
+위치 2: "정말"    -> "이", "영화는", "정말" 참고
+위치 3: "좋았다"  -> 앞의 모든 token 참고
+
+분류에서는 마지막 위치의 hidden state를 classifier에 넣는다.</div>
+    </section>
+
+    <section id="dataset">
+      <h2>NSMC 데이터셋 만들기</h2>
+      <p>
+        NSMC 파일은 보통 <code>id</code>, <code>document</code>, <code>label</code> 열을 가진 TSV입니다.
+        <code>document</code>가 리뷰 본문이고, <code>label</code>은 감성 label입니다.
+      </p>
+
+      <h3><code>make_sentiment_dataset</code></h3>
+      <p>
+        이 함수는 TSV를 읽어서 Python list 형태의 데이터를 반환하면 됩니다.
+      </p>
+
+      <pre><code class="language-python">[
+    {"text": "정말 좋았다", "label": 1},
+    {"text": "별로였다", "label": 0},
+]</code></pre>
+
+      <p>구현 흐름은 다음 순서로 생각하면 됩니다.</p>
+      <ol>
+        <li><code>train_tsv_path</code>를 읽습니다.</li>
+        <li>헤더 <code>id	document	label</code>는 데이터가 아니므로 건너뜁니다.</li>
+        <li><code>document</code>가 비어 있는 행은 제거합니다.</li>
+        <li><code>label</code>은 문자열이 아니라 정수 <code>0</code> 또는 <code>1</code>로 바꿉니다.</li>
+        <li>seed를 고정해서 train 데이터를 섞은 뒤 <code>val_ratio</code>만큼 validation으로 나눕니다.</li>
+        <li><code>test_tsv_path</code>가 있으면 같은 방식으로 test 데이터를 만듭니다.</li>
+      </ol>
+
+      <div class="warn">
+        테스트에서는 빈 리뷰가 하나 들어 있습니다. 그 행까지 데이터로 넣으면 split 개수가 맞지 않습니다.
+      </div>
+
+      <h3><code>ReviewSentimentDataset</code></h3>
+      <p>
+        이 클래스는 DataLoader가 바로 배치를 만들 수 있도록 리뷰 길이를 모두 같은 길이로 맞춰야 합니다.
+        길면 자르고, 짧으면 padding token ID를 뒤에 붙입니다.
+      </p>
+
+      <pre><code class="language-python">ids = tokenizer.encode(text, add_bos_eos=True)
+ids = ids[:max_length]
+ids = ids + [pad_id] * (max_length - len(ids))
+input_ids = torch.tensor(ids, dtype=torch.long)</code></pre>
+
+      <table>
+        <thead>
+          <tr>
+            <th>상황</th>
+            <th>처리</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>토큰 길이가 <code>max_length</code>보다 김</td>
+            <td><code>ids[:max_length]</code>로 자릅니다.</td>
+          </tr>
+          <tr>
+            <td>토큰 길이가 <code>max_length</code>보다 짧음</td>
+            <td><code>pad_id</code>를 뒤에 붙여 길이를 맞춥니다.</td>
+          </tr>
+          <tr>
+            <td>label</td>
+            <td>분류 손실에서 쓸 수 있게 정수 label로 반환합니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="model">
+      <h2>GPT 위에 분류 Head 붙이기</h2>
+      <p>
+        기존 <code>GPTModel</code>의 <code>lm_head</code>는 다음 토큰 예측용입니다.
+        즉 <code>emb_dim</code>을 <code>vocab_size</code>로 바꿉니다. 감성 분류에서는 어휘사전 전체가 아니라
+        긍정/부정 두 클래스만 맞히면 되므로 별도의 classifier가 필요합니다.
+      </p>
+
+      <div class="diagram">GPT hidden state
+(B, T, emb_dim)
+        |
+        | 마지막 위치 선택: x[:, -1, :]
+        v
+문장 대표 벡터
+(B, emb_dim)
+        |
+        | Dropout
+        | Linear(emb_dim, num_labels)
+        v
+감성 logits
+(B, 2)</div>
+
+      <h3>왜 <code>GPTModel.forward</code>를 그대로 쓰면 부족한가</h3>
+      <p>
+        현재 <code>GPTModel.forward</code>는 hidden state를 <code>lm_head</code>까지 통과시켜
+        <code>(B, T, vocab_size)</code> logits를 반환합니다. 하지만 분류 head는
+        <code>lm_head</code> 이전의 hidden state, 즉 <code>(B, T, emb_dim)</code>이 필요합니다.
+      </p>
+
+      <p>
+        그래서 <code>GPTForSequenceClassification.forward</code> 안에서는 GPT의 내부 구성요소를 재사용해
+        hidden state까지만 계산하고, 마지막 위치를 뽑아 classifier에 넣는 방식으로 구현하면 됩니다.
+      </p>
+
+      <pre><code class="language-python">x = self.gpt.embedding(input_ids)
+
+for block in self.gpt.blocks:
+    x = block(x)
+
+x = self.gpt.final_norm(x)
+last_hidden = x[:, -1, :]
+logits = self.classifier(self.dropout(last_hidden))</code></pre>
+
+      <p>
+        <code>labels</code>가 없으면 <code>logits</code>만 반환하고, <code>labels</code>가 있으면
+        <code>cross_entropy</code>로 loss를 계산해 <code>(loss, logits)</code>를 반환합니다.
+      </p>
+
+      <pre><code class="language-python">if labels is None:
+    return logits
+
+loss = torch.nn.functional.cross_entropy(logits, labels)
+return loss, logits</code></pre>
+
+      <div class="note">
+        <code>cross_entropy</code>에는 softmax를 직접 넣지 않습니다. PyTorch의 cross entropy가 내부에서 logits를 확률처럼 다룰 준비를 해 줍니다.
+      </div>
+    </section>
+
+    <section id="train">
+      <h2>훈련과 평가</h2>
+      <p>
+        사전 학습 훈련 루프와 구조는 거의 같습니다. 다른 점은 target이 다음 token ID가 아니라 감성 label이라는 점,
+        그리고 평가할 때 generated text가 아니라 accuracy를 본다는 점입니다.
+      </p>
+
+      <h3><code>train_epoch_sentiment</code></h3>
+      <ol>
+        <li><code>model.train()</code>으로 훈련 모드를 켭니다.</li>
+        <li>DataLoader에서 <code>input_ids</code>, <code>labels</code>를 꺼냅니다.</li>
+        <li>둘 다 <code>device</code>로 보냅니다.</li>
+        <li><code>loss, logits = model(input_ids, labels=labels)</code>로 손실을 얻습니다.</li>
+        <li><code>optimizer.zero_grad()</code>, <code>loss.backward()</code>, <code>optimizer.step()</code> 순서로 업데이트합니다.</li>
+        <li><code>argmax</code>로 예측 label을 구하고 accuracy를 누적합니다.</li>
+      </ol>
+
+      <pre><code class="language-python">preds = torch.argmax(logits, dim=-1)
+correct += (preds == labels).sum().item()
+total += labels.numel()</code></pre>
+
+      <h3><code>evaluate_sentiment</code></h3>
+      <p>
+        평가는 모델을 업데이트하지 않습니다. 그래서 <code>model.eval()</code>과 <code>torch.no_grad()</code>를 같이 씁니다.
+      </p>
+
+      <pre><code class="language-python">model.eval()
+
+with torch.no_grad():
+    loss, logits = model(input_ids, labels=labels)</code></pre>
+
+      <div class="ok">
+        반환값은 둘 다 <code>(평균 loss, accuracy)</code> 형태가 좋습니다. accuracy는 <code>0.0</code>부터 <code>1.0</code> 사이 비율로 계산하면 됩니다.
+      </div>
+    </section>
+
+    <section id="checklist">
+      <h2>구현 순서</h2>
+      <ol>
+        <li><code>make_sentiment_dataset</code>에서 TSV 읽기, 빈 리뷰 제거, label 정수 변환, train/val/test split을 구현합니다.</li>
+        <li><code>ReviewSentimentDataset.__getitem__</code>에서 encode, truncate, padding, LongTensor 반환을 구현합니다.</li>
+        <li><code>GPTForSequenceClassification.__init__</code>에서 <code>Dropout</code>과 <code>Linear(emb_dim, num_labels)</code>를 정의합니다.</li>
+        <li><code>GPTForSequenceClassification.forward</code>에서 GPT hidden state를 계산하고 마지막 위치를 classifier에 넣습니다.</li>
+        <li><code>train_epoch_sentiment</code>에서 훈련 loss와 accuracy를 누적합니다.</li>
+        <li><code>evaluate_sentiment</code>에서 no_grad 평가 loss와 accuracy를 계산합니다.</li>
+      </ol>
+
+      <h3>테스트 명령어</h3>
+      <pre><code class="language-bash">pytest tests/test_finetune.py -v</code></pre>
+
+      <p>함수별로 좁혀서 볼 때는 아래처럼 실행할 수 있습니다.</p>
+
+      <pre><code class="language-bash">pytest tests/test_finetune.py::TestMakeSentimentDataset::test_make_sentiment_dataset_splits_rows -v
+pytest tests/test_finetune.py::TestReviewSentimentDataset::test_review_sentiment_dataset_getitem -v
+pytest tests/test_finetune.py::TestGPTForSequenceClassification::test_sequence_classification_shape -v
+pytest tests/test_finetune.py::TestSentimentTrainEval::test_train_eval_functions_exist -v</code></pre>
+
+      <h3>자주 틀리는 지점</h3>
+      <ul>
+        <li><code>lm_head</code>의 <code>vocab_size</code> 출력으로 분류하려고 하면 shape가 맞지 않습니다.</li>
+        <li><code>labels</code>는 one-hot이 아니라 <code>(B,)</code> 모양의 정수 class ID여야 합니다.</li>
+        <li><code>input_ids</code> dtype은 <code>torch.long</code>이어야 embedding에 들어갈 수 있습니다.</li>
+        <li><code>evaluate_sentiment</code>에서 <code>no_grad</code>를 빼면 불필요하게 그래프를 저장합니다.</li>
+        <li>리뷰가 비어 있는 TSV 행을 제거하지 않으면 테스트 split 개수가 어긋납니다.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      참고 흐름: <code>docs/LLM.txt</code> ch06.2 데이터셋 준비, ch06.3 데이터 로더,
+      ch06.5 분류 헤드, ch06.6 손실과 정확도, ch06.7 지도 학습 미세 튜닝.
+    </p>
+  </footer>
+</body>
+</html>
