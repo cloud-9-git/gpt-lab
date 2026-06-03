@@ -59,7 +59,7 @@ def calc_loss_batch(
     model: GPTModel,
     device: torch.device,
 ) -> torch.Tensor:
-    """TODO: 한 배치를 device로 옮긴 뒤 다음 토큰 예측 cross entropy loss를 계산합니다."""
+    """한 배치를 device로 옮긴 뒤 다음 토큰 예측 cross entropy loss를 계산합니다."""
     input_batch = input_batch.to(device)
     target_batch = target_batch.to(device)
     loss, _ = model(input_batch, targets=target_batch)
@@ -72,7 +72,7 @@ def calc_loss_loader(
     device: torch.device,
     num_batches: int | None = None,
 ) -> float:
-    """TODO: data_loader의 평균 loss를 계산합니다. 검증에서는 torch.no_grad()를 사용하세요."""
+    """data_loader의 평균 loss를 계산합니다."""
     if len(data_loader) == 0:
         return float("nan")
 
@@ -102,9 +102,9 @@ def save_checkpoint(
     optimizer: torch.optim.Optimizer,
     epoch: int,
     global_step: int,
-    path: str,
+    path: str | Path,
 ) -> None:
-    """TODO: model/optimizer 상태, epoch, global_step을 torch.save로 저장합니다."""
+    """model/optimizer 상태, epoch, global_step을 torch.save로 저장합니다."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
@@ -120,10 +120,10 @@ def save_checkpoint(
 def load_checkpoint(
     model: GPTModel,
     optimizer: torch.optim.Optimizer | None,
-    path: str,
+    path: str | Path,
     device: torch.device,
 ) -> tuple[int, int]:
-    """TODO: torch.load로 checkpoint를 읽어 model/optimizer 상태를 복원합니다."""
+    """torch.load로 checkpoint를 읽어 model/optimizer 상태를 복원합니다."""
     checkpoint = torch.load(path, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
     if optimizer is not None and "optimizer_state_dict" in checkpoint:
@@ -140,7 +140,7 @@ def generate(
     top_k: int | None = None,
     eos_id: int | None = None,
 ) -> torch.Tensor:
-    """TODO: temperature와 top-k 샘플링을 지원하는 생성 함수를 구현합니다."""
+    """temperature와 top-k 샘플링을 지원하는 생성 함수."""
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_size:]
         with torch.no_grad():
@@ -181,7 +181,7 @@ def generate_and_print_sample(
     temperature: float = 0.8,
     top_k: int | None = 40,
 ) -> None:
-    """TODO: start_context를 encode하고 generate 후 decode하여 출력합니다."""
+    """start_context를 encode하고 generate 후 decode하여 출력합니다."""
     was_training = model.training
     model.eval()
     encoded = tokenizer.encode(start_context)
@@ -214,17 +214,19 @@ def train_model(
     start_context: str,
     tokenizer,
     ckpt_freq: int | None = None,
+    ckpt_dir: str | Path = ".",
+    final_ckpt_path: str | Path | None = None,
     start_epoch: int = 0,
     global_step: int = 0,
     return_history: bool = False,
 ) -> list[float]:
-    """TODO: 사전 학습 루프를 구현하고 epoch별 train loss 리스트를 반환합니다."""
+    """사전 학습 루프를 실행하고 epoch별 train loss 리스트를 반환합니다."""
     model.to(device)
-    # train_losses = []
     epoch_train_losses = []
     eval_steps = []
     train_eval_losses = []
     val_losses = []
+    checkpoint_paths = []
 
     for epoch in range(start_epoch, start_epoch + num_epochs):
         model.train()
@@ -259,7 +261,9 @@ def train_model(
                 model.train()
 
             if ckpt_freq and global_step % ckpt_freq == 0:
-                save_checkpoint(model, optimizer, epoch, global_step, f"checkpoint_step_{global_step}.pt")
+                ckpt_path = Path(ckpt_dir) / f"checkpoint_step_{global_step}.pt"
+                save_checkpoint(model, optimizer, epoch, global_step, ckpt_path)
+                checkpoint_paths.append(str(ckpt_path))
 
         epoch_train_losses.append(epoch_loss / max(1, num_batches))
         if not eval_steps or eval_steps[-1] != global_step:
@@ -275,7 +279,13 @@ def train_model(
         "eval_steps": eval_steps,
         "train_eval_losses": train_eval_losses,
         "val_losses": val_losses,
+        "checkpoint_paths": checkpoint_paths,
+        "final_checkpoint_path": None,
     }
+
+    if final_ckpt_path is not None:
+        save_checkpoint(model, optimizer, start_epoch + num_epochs - 1, global_step, final_ckpt_path)
+        history["final_checkpoint_path"] = str(final_ckpt_path)
 
     if return_history:
         return history
@@ -286,6 +296,8 @@ def plot_losses(
     train_losses: list[float], 
     val_losses: list[float] | None = None,
     steps: list[int] | None = None,
+    save_path: str | Path | None = None,
+    show: bool = True,
 ) -> None:
     """훈련/검증 손실 그래프를 그리는 제공 함수."""
     plt.figure(figsize=(8, 5))
@@ -307,4 +319,11 @@ def plot_losses(
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path)
+    if show:
+        plt.show()
+    else:
+        plt.close()

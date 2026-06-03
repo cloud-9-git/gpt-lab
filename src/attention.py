@@ -30,8 +30,6 @@ class MultiHeadAttention(nn.Module):
         if d_model % n_heads != 0:
             raise ValueError("d_model은 n_heads로 나누어 떨어져야 합니다.")
         self.head_dim = d_model // n_heads
-        # TODO: qkv projection, output projection, dropout을 정의하세요.
-        
         # qkv projection: 입력 x를 query/key/value 표현으로 바꾸기 위한 선형변환
         # 예: nn.Linear(d_model, 3 * d_model, bias=qkv_bias)
         # 왜? attention은 Q, K, V 세 표현을 기준으로 계산되기 때문.
@@ -53,7 +51,7 @@ class MultiHeadAttention(nn.Module):
         return_attention_weights: bool = False,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
-        TODO: multi-head attention forward를 구현합니다.
+        multi-head attention forward를 구현합니다.
 
         Args:
             x: (batch_size, seq_len, d_model)

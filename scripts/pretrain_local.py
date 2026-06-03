@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import time
 from pathlib import Path
 
 import torch
@@ -83,6 +85,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-freq", type=int, default=50)
     parser.add_argument("--eval-iter", type=int, default=5)
     parser.add_argument("--ckpt-freq", type=int, default=None)
+    parser.add_argument("--ckpt-dir", default="checkpoints")
+    parser.add_argument("--final-ckpt-path", default="checkpoints/pretrain_final.pt")
+    parser.add_argument("--results-path", default="outputs/pretrain_results.json")
+    parser.add_argument("--loss-plot-path", default="outputs/pretrain_loss.png")
+    parser.add_argument("--show-plot", action="store_true")
     parser.add_argument("--start-context", default="이 영화는")
     parser.add_argument("--seed", type=int, default=123)
     return parser.parse_args()
@@ -103,6 +110,13 @@ def prepare_tokenizer(args: argparse.Namespace, train_text: str, val_text: str) 
 
     if tokenizer_path.exists() and not args.force_retokenize:
         tokenizer.load(tokenizer_path)
+        actual_vocab_size = len(tokenizer.id_to_token)
+        if actual_vocab_size != args.vocab_size:
+            raise ValueError(
+                f"tokenizer vocab mismatch: 명령어 vocab_size={args.vocab_size}, "
+                f"파일 vocab_size={actual_vocab_size}. "
+                "--force-retokenize를 붙이거나 tokenizer/cache 파일명을 분리하세요."
+            )
         print(f"토크나이저 로드: {tokenizer_path}", flush=True)
         return tokenizer
 
@@ -115,14 +129,85 @@ def prepare_tokenizer(args: argparse.Namespace, train_text: str, val_text: str) 
         flush=True,
     )
     tokenizer.train(tokenizer_corpus)
+    actual_vocab_size = len(tokenizer.id_to_token)
+    if actual_vocab_size != args.vocab_size:
+        raise ValueError(
+            f"tokenizer 학습 결과 vocab_size={actual_vocab_size}입니다. "
+            f"요청한 vocab_size={args.vocab_size}와 달라 모델 설정을 만들 수 없습니다."
+        )
     tokenizer_path.parent.mkdir(parents=True, exist_ok=True)
     tokenizer.save(tokenizer_path)
     print(f"토크나이저 학습 및 저장: {tokenizer_path}", flush=True)
     return tokenizer
 
 
+def cache_meta_path(cache_path: Path) -> Path:
+    return cache_path.with_suffix(cache_path.suffix + ".meta.json")
+
+
+def expected_cache_meta(
+    args: argparse.Namespace,
+    tokenizer_path: Path,
+    text: str,
+    split: str,
+) -> dict:
+    return {
+        "split": split,
+        "vocab_size": args.vocab_size,
+        "tokenizer_path": str(tokenizer_path.resolve()),
+        "text_chars": len(text),
+        "add_bos_eos": False,
+    }
+
+
+def load_or_create_token_ids_with_meta(
+    text: str,
+    tokenizer: BPETokenizer,
+    cache_path: Path,
+    tokenizer_path: Path,
+    args: argparse.Namespace,
+    split: str,
+) -> list[int]:
+    expected_meta = expected_cache_meta(args, tokenizer_path, text, split)
+    meta_path = cache_meta_path(cache_path)
+
+    if cache_path.exists() and not args.force_retokenize:
+        if not meta_path.exists():
+            raise ValueError(
+                f"{cache_path}는 있지만 {meta_path}가 없습니다. "
+                "오래된 cache일 수 있으니 --force-retokenize로 다시 만드세요."
+            )
+        actual_meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        mismatches = {
+            key: (actual_meta.get(key), value)
+            for key, value in expected_meta.items()
+            if actual_meta.get(key) != value
+        }
+        if mismatches:
+            raise ValueError(
+                f"{cache_path} metadata mismatch: {mismatches}. "
+                "--force-retokenize를 붙이거나 cache 파일명을 분리하세요."
+            )
+
+    token_ids = get_or_create_token_ids(
+        text,
+        tokenizer,
+        cache_path,
+        force_retokenize=args.force_retokenize,
+    )
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    meta = {
+        **expected_meta,
+        "num_tokens": len(token_ids),
+        "max_token_id": max(token_ids) if token_ids else None,
+    }
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    return token_ids
+
+
 def main() -> None:
     args = parse_args()
+    start_time = time.time()
     torch.manual_seed(args.seed)
 
     train_text = read_text(args.train_text)
@@ -134,21 +219,26 @@ def main() -> None:
         val_text = val_text[: args.val_chars]
         print(f"검증 텍스트 제한: {len(val_text):,} chars", flush=True)
     tokenizer = prepare_tokenizer(args, train_text, val_text)
+    tokenizer_path = ROOT / args.tokenizer_path
 
     print(f"train token ID 준비 시작: {ROOT / args.train_token_cache}", flush=True)
-    train_ids = get_or_create_token_ids(
+    train_ids = load_or_create_token_ids_with_meta(
         train_text,
         tokenizer,
         ROOT / args.train_token_cache,
-        force_retokenize=args.force_retokenize,
+        tokenizer_path,
+        args,
+        "train",
     )
     print(f"train token ID 준비 완료: {len(train_ids):,} tokens", flush=True)
     print(f"val token ID 준비 시작: {ROOT / args.val_token_cache}", flush=True)
-    val_ids = get_or_create_token_ids(
+    val_ids = load_or_create_token_ids_with_meta(
         val_text,
         tokenizer,
         ROOT / args.val_token_cache,
-        force_retokenize=args.force_retokenize,
+        tokenizer_path,
+        args,
+        "val",
     )
     print(f"val token ID 준비 완료: {len(val_ids):,} tokens", flush=True)
 
@@ -217,6 +307,8 @@ def main() -> None:
         start_context=args.start_context,
         tokenizer=tokenizer,
         ckpt_freq=args.ckpt_freq,
+        ckpt_dir=ROOT / args.ckpt_dir,
+        final_ckpt_path=ROOT / args.final_ckpt_path,
         return_history=True,
     )
 
@@ -228,7 +320,31 @@ def main() -> None:
         history["train_eval_losses"],
         history["val_losses"],
         steps=history["eval_steps"],
+        save_path=ROOT / args.loss_plot_path,
+        show=args.show_plot,
     )
+    elapsed_seconds = time.time() - start_time
+
+    results = {
+        "args": vars(args),
+        "config": config,
+        "device": str(device),
+        "num_parameters": sum(p.numel() for p in model.parameters()),
+        "train_text_chars": len(train_text),
+        "val_text_chars": len(val_text),
+        "train_tokens": len(train_ids),
+        "val_tokens": len(val_ids),
+        "elapsed_seconds": elapsed_seconds,
+        "history": history,
+        "loss_plot_path": str((ROOT / args.loss_plot_path).resolve()),
+        "results_path": str((ROOT / args.results_path).resolve()),
+    }
+    results_path = ROOT / args.results_path
+    results_path.parent.mkdir(parents=True, exist_ok=True)
+    results_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"loss plot 저장: {ROOT / args.loss_plot_path}", flush=True)
+    print(f"실험 결과 저장: {results_path}", flush=True)
+    print(f"소요 시간: {elapsed_seconds / 60:.2f}분", flush=True)
     
 if __name__ == "__main__":
     main()

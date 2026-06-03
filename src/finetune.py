@@ -3,13 +3,13 @@
 
 from pathlib import Path
 
-import random
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset
 import csv
 import json
 import random
+
+import torch
+import torch.nn as nn
+from torch.utils.data import Dataset
 
 try:
     from .model import GPTModel
@@ -25,7 +25,7 @@ def make_sentiment_dataset(
     output_dir: str | Path | None = None,
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """
-    TODO: NSMC TSV를 읽어 train/validation/test 감성 분류 데이터를 만듭니다.
+    NSMC TSV를 읽어 train/validation/test 감성 분류 데이터를 만듭니다.
 
     반환 형식:
         [{"text": "리뷰", "label": 0 또는 1}, ...]
@@ -92,7 +92,7 @@ class ReviewSentimentDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        """TODO: text를 encode하고 max_length까지 자르거나 padding한 뒤 label과 함께 반환합니다."""
+        """text를 encode하고 max_length까지 자르거나 padding한 뒤 label과 함께 반환합니다."""
         item = self.data[idx]
         ids = self.tokenizer.encode(item["text"], add_bos_eos=True)
 
@@ -118,11 +118,12 @@ class GPTForSequenceClassification(nn.Module):
         gpt_model: GPTModel,
         num_labels: int = 2,
         drop_rate: float = 0.1,
+        pad_id: int = 0,
     ):
         super().__init__()
         self.gpt = gpt_model
         self.num_labels = num_labels
-        # TODO: dropout과 classifier를 정의하세요. classifier 입력 차원은 gpt_model.config["emb_dim"]입니다.
+        self.pad_id = pad_id
         emb_dim = gpt_model.config["emb_dim"]
         self.dropout = nn.Dropout(drop_rate)
         self.classifier = nn.Linear(emb_dim, num_labels)
@@ -133,7 +134,7 @@ class GPTForSequenceClassification(nn.Module):
         labels: torch.Tensor | None = None,
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """
-        TODO: GPT hidden state에서 문장 대표 벡터를 뽑아 분류 logits를 만듭니다.
+        GPT hidden state에서 문장 대표 벡터를 뽑아 분류 logits를 만듭니다.
 
         labels가 있으면 (loss, logits), 없으면 logits를 반환합니다.
         """
@@ -142,7 +143,10 @@ class GPTForSequenceClassification(nn.Module):
             x = block(x)
         x = self.gpt.final_norm(x)
 
-        pooled = x[:, -1, :]
+        valid_lengths = input_ids.ne(self.pad_id).sum(dim=1).clamp(min=1)
+        last_token_idx = valid_lengths - 1
+        batch_idx = torch.arange(input_ids.size(0), device=input_ids.device)
+        pooled = x[batch_idx, last_token_idx]
         logits = self.classifier(self.dropout(pooled))
 
         if labels is None:
@@ -159,7 +163,7 @@ def train_epoch_sentiment(
     optimizer: torch.optim.Optimizer,
     device: torch.device,
 ) -> tuple[float, float]:
-    """TODO: 감성 분류 모델을 1 epoch 훈련하고 (평균 loss, accuracy)를 반환합니다."""
+    """감성 분류 모델을 1 epoch 훈련하고 (평균 loss, accuracy)를 반환합니다."""
     model.train()
     total_loss = 0.0
     total_correct = 0
@@ -190,7 +194,7 @@ def evaluate_sentiment(
     data_loader,
     device: torch.device,
 ) -> tuple[float, float]:
-    """TODO: 감성 분류 모델을 평가하고 (평균 loss, accuracy)를 반환합니다."""
+    """감성 분류 모델을 평가하고 (평균 loss, accuracy)를 반환합니다."""
     model.eval()
     total_loss = 0.0
     total_correct = 0

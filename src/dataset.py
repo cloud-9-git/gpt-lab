@@ -37,13 +37,13 @@ class GPTDataset(Dataset):
         
 
     def __len__(self) -> int:
-        """TODO: 전체 샘플 개수를 반환합니다."""
+        """전체 샘플 개수를 반환합니다."""
         return len(self.input_ids)
         
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        TODO: idx번째 input_ids와 target_ids를 LongTensor로 반환합니다.
+        idx번째 input_ids와 target_ids를 LongTensor로 반환합니다.
 
         Returns:
             input_ids: (context_length,)
@@ -61,7 +61,7 @@ def create_dataloader(
     shuffle: bool = True,
     num_workers: int = 0,
 ) -> DataLoader:
-    """TODO: GPTDataset을 만들고 torch.utils.data.DataLoader로 감싸 반환합니다."""
+    """GPTDataset을 만들고 torch.utils.data.DataLoader로 감싸 반환합니다."""
     dataset = GPTDataset(token_ids, context_length, stride)
     dataloader = DataLoader(
         dataset,

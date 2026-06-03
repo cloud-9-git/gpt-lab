@@ -5,6 +5,7 @@ data/nsmc_lm_*.txt
 data/nsmc_sentiment_*.jsonl
 data/vocab_*.json
 data/*tokenizer*.json
+data/*.meta.json
 data/*.jsonl
 
 # Python
@@ -35,6 +36,11 @@ htmlcov/
 *.pt
 *.pth
 checkpoints/
+
+# 실험 산출물
+.cache/
+*.log
+outputs/
 
 # 과제 안내문 (로컬/Notion 전용, repo에 미포함)
 notion/
