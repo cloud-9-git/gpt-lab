@@ -216,10 +216,15 @@ def train_model(
     ckpt_freq: int | None = None,
     start_epoch: int = 0,
     global_step: int = 0,
+    return_history: bool = False,
 ) -> list[float]:
     """TODO: 사전 학습 루프를 구현하고 epoch별 train loss 리스트를 반환합니다."""
     model.to(device)
-    train_losses = []
+    # train_losses = []
+    epoch_train_losses = []
+    eval_steps = []
+    train_eval_losses = []
+    val_losses = []
 
     for epoch in range(start_epoch, start_epoch + num_epochs):
         model.train()
@@ -239,6 +244,10 @@ def train_model(
             if eval_freq and global_step % eval_freq == 0:
                 train_loss = calc_loss_loader(train_loader, model, device, eval_iter)
                 val_loss = calc_loss_loader(val_loader, model, device, eval_iter)
+                
+                eval_steps.append(global_step)
+                train_eval_losses.append(train_loss)
+                val_losses.append(val_loss)
                 print(f"step {global_step}: train loss {train_loss:.4f}, val loss {val_loss:.4f}")
                 generate_and_print_sample(
                     model,
@@ -252,18 +261,50 @@ def train_model(
             if ckpt_freq and global_step % ckpt_freq == 0:
                 save_checkpoint(model, optimizer, epoch, global_step, f"checkpoint_step_{global_step}.pt")
 
-        train_losses.append(epoch_loss / max(1, num_batches))
+        epoch_train_losses.append(epoch_loss / max(1, num_batches))
+        if not eval_steps or eval_steps[-1] != global_step:
+            train_loss = calc_loss_loader(train_loader, model, device, eval_iter)
+            val_loss = calc_loss_loader(val_loader, model, device, eval_iter)
+            eval_steps.append(global_step)
+            train_eval_losses.append(train_loss)
+            val_losses.append(val_loss)
+            print(f"final step {global_step}: train loss {train_loss:.4f}, val loss {val_loss:.4f}")
 
-    return train_losses
+    history = {
+        "epoch_train_losses": epoch_train_losses,
+        "eval_steps": eval_steps,
+        "train_eval_losses": train_eval_losses,
+        "val_losses": val_losses,
+    }
+
+    if return_history:
+        return history
+    return epoch_train_losses
 
 
-def plot_losses(train_losses: list[float], val_losses: list[float] | None = None) -> None:
+def plot_losses(
+    train_losses: list[float], 
+    val_losses: list[float] | None = None,
+    steps: list[int] | None = None,
+) -> None:
     """훈련/검증 손실 그래프를 그리는 제공 함수."""
-    plt.plot(train_losses, label="Train")
+    plt.figure(figsize=(8, 5))
+    
+    if steps is None:
+        x = list(range(1, len(train_losses) + 1))
+        xlabel = "Epoch"
+    else:
+        x = steps
+        xlabel = "Global Step"
+
+    plt.plot(x, train_losses, marker="o", label="Train Loss")
     if val_losses is not None:
-        plt.plot(val_losses, label="Val")
-    plt.xlabel("Epoch")
+        plt.plot(x, val_losses, marker="o", label="Val Loss")
+    
+    plt.xlabel(xlabel)
     plt.ylabel("Loss")
+    plt.title("Train vs Validation Loss")
+    plt.grid(True, alpha=0.3)
     plt.legend()
-    plt.title("Training / Validation Loss")
+    plt.tight_layout()
     plt.show()

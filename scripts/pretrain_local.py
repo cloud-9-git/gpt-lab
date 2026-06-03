@@ -16,7 +16,7 @@ sys.path.insert(0, str(SRC))
 from bpe import BPETokenizer
 from dataset import create_dataloader
 from model import GPTModel
-from train import get_or_create_token_ids, train_model
+from train import get_or_create_token_ids, plot_losses, train_model
 
 
 class LimitedLoader:
@@ -205,7 +205,7 @@ def main() -> None:
         weight_decay=args.weight_decay,
     )
 
-    train_losses = train_model(
+    history = train_model(
         model=model,
         train_loader=train_loader,
         val_loader=val_loader,
@@ -217,10 +217,18 @@ def main() -> None:
         start_context=args.start_context,
         tokenizer=tokenizer,
         ckpt_freq=args.ckpt_freq,
+        return_history=True,
     )
 
-    print("train_losses:", train_losses, flush=True)
+    print("epoch_train_losses:", history["epoch_train_losses"], flush=True)
+    print("train_eval_losses:", history["train_eval_losses"], flush=True)
+    print("val_losses:", history["val_losses"], flush=True)
 
-
+    plot_losses(
+        history["train_eval_losses"],
+        history["val_losses"],
+        steps=history["eval_steps"],
+    )
+    
 if __name__ == "__main__":
     main()
