@@ -81,33 +81,25 @@ pytest tests/ -v
 
 ```bash
 python download_data.py
-python scripts/pretrain_local.py --epochs 1 --batch-size 8 --context-length 64
+python scripts/pretrain_local.py --preset baseline
 ```
 
-처음 실행하면 `data/tokenizer.json`, `data/train_token_ids.pt`, `data/val_token_ids.pt`를 만듭니다.
+처음 실행하면 `data/pretrain_presets/` 아래 tokenizer와 token ID 캐시를 만듭니다.
 다음 실행부터는 저장된 tokenizer와 token ID 캐시를 재사용하므로 학습 준비 시간이 줄어듭니다.
 텍스트 데이터나 tokenizer 설정을 바꿨다면 캐시를 다시 만들기 위해 `--force-retokenize`를 붙이거나 기존 `.pt` 캐시 파일을 삭제하세요.
+프리셋 실행은 기본적으로 손실 그래프 창을 띄우지 않습니다. 그래프까지 보고 싶으면 `--plot`을 붙이세요.
+각 실험은 `runs/pretrain_logs/<run-name>/` 아래에 `config.json`, `epoch_metrics.jsonl`, `epoch_metrics.csv`를 남깁니다.
+학습 중에는 `epoch_metrics.csv`나 `epoch_metrics.jsonl`을 열어 epoch별 train/validation loss를 확인할 수 있습니다.
 
 CPU에서 실행 여부만 빠르게 확인하려면 작은 설정으로 일부 batch만 돌릴 수 있습니다.
 
 ```bash
-python scripts/pretrain_local.py \
-  --vocab-size 260 \
-  --context-length 16 \
-  --emb-dim 32 \
-  --n-heads 4 \
-  --n-layers 1 \
-  --batch-size 2 \
-  --epochs 1 \
-  --eval-freq 1 \
-  --eval-iter 1 \
-  --max-train-batches 2 \
-  --max-val-batches 2 \
-  --tokenizer-path data/smoke_tokenizer.json \
-  --train-token-cache data/smoke_train_token_ids.pt \
-  --val-token-cache data/smoke_val_token_ids.pt \
-  --force-retokenize
+python scripts/pretrain_local.py --preset smoke
+python scripts/pretrain_local.py --list-presets
 ```
+
+개별 인자를 덧붙이면 프리셋 값을 덮어쓸 수 있습니다.
+로그 폴더 이름을 직접 정하려면 `--run-name my-experiment`를 붙이고, 로그 생성을 끄려면 `--no-log`를 붙입니다.
 
 ---
 
@@ -244,12 +236,20 @@ python download_data.py
 
 ### 7.2 하이퍼파라미터 탐색
 
+각 실험은 `scripts/pretrain_local.py --preset <이름>`으로 바로 실행할 수 있습니다.
+
 - `batch_size`: 2, 4, 8, 16
+  - 프리셋: `batch_2`, `batch_4`, `batch_8`, `batch_16`
 - `drop_rate`: 0.0, 0.1, 0.2
+  - 프리셋: `drop_0_0`, `drop_0_1`, `drop_0_2`
 - `learning_rate`: 1e-4, 3e-4, 5e-4
+  - 프리셋: `lr_1e_4`, `lr_3e_4`, `lr_5e_4`
 - `context_length`: 64, 128
+  - 프리셋: `ctx_64`, `ctx_128`
 - `n_layers`: 1, 2, 4
+  - 프리셋: `layers_1`, `layers_2`, `layers_4`
 - `emb_dim`: 64, 128, 192
+  - 프리셋: `emb_64`, `emb_128`, `emb_192`
 
 ### 7.3 더 나은 감성 분류
 
