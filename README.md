@@ -101,6 +101,11 @@ python scripts/pretrain_local.py --list-presets
 개별 인자를 덧붙이면 프리셋 값을 덮어쓸 수 있습니다.
 로그 폴더 이름을 직접 정하려면 `--run-name my-experiment`를 붙이고, 로그 생성을 끄려면 `--no-log`를 붙입니다.
 
+감성 분류 미세 조정은 기본적으로 `data/sentiment_cache/` 아래에 리뷰 token ID 캐시를 만듭니다.
+첫 실행에서는 cache를 생성하느라 준비 시간이 들지만, 다음 실행부터는 같은 데이터/tokenizer/max length 설정이면 캐시를 재사용해서 반복 토큰화 시간을 줄입니다.
+설정을 바꿨거나 강제로 다시 만들고 싶으면 `--force-sentiment-retokenize`를 붙이고, 기존처럼 매번 Dataset에서 tokenization하려면 `--no-sentiment-cache`를 붙입니다.
+작은 확인 실행에는 `--max-train-examples`, `--max-val-examples`, `--max-test-examples`로 읽을 row 수를 제한할 수 있습니다.
+
 ---
 
 ## 4. 프로젝트 소스
