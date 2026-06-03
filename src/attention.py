@@ -27,6 +27,8 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
+        if d_model % n_heads != 0:
+            raise ValueError("d_model은 n_heads로 나누어 떨어져야 합니다.")
         self.head_dim = d_model // n_heads
         # TODO: qkv projection, output projection, dropout을 정의하세요.
         
@@ -38,7 +40,7 @@ class MultiHeadAttention(nn.Module):
         # 왜? head를 합친 뒤 다음 블록이 받을 수 있는 형태로 맞춰야 하기 때문.
 
         # dropout: attention weight에 적용할 regularization 정의
-        self.qkv_proj = nn.Linear(d_model, 3 * d_model)
+        self.qkv_proj = nn.Linear(d_model, 3 * d_model, bias=qkv_bias)
         self.out_proj = nn.Linear(d_model, d_model)
         self.dropout = nn.Dropout(drop_rate)
         
@@ -101,8 +103,10 @@ class MultiHeadAttention(nn.Module):
         # 왜? GPT는 다음 토큰 예측 모델이라 현재 위치가 미래 정보를 보면 안 되기 때문.
 
         if causal_mask:
-            self.mask = torch.triu(torch.ones(num_tokens, num_tokens), diagonal=1)
-            mask_bool = self.mask.bool()[:num_tokens, :num_tokens]
+            mask_bool = torch.triu(
+                torch.ones(num_tokens, num_tokens, device=x.device, dtype=torch.bool),
+                diagonal=1,
+            )
             attn_scores.masked_fill_(mask_bool, -torch.inf)
 
         # 6. softmax로 attention weight를 만든다.

@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """GPT 사전 학습 유틸리티 과제 템플릿."""
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import torch
 
@@ -8,6 +10,47 @@ try:
     from .model import GPTModel
 except ImportError:
     from model import GPTModel
+
+
+def save_token_ids(token_ids: list[int], path: str | Path) -> None:
+    """토큰화된 ID 리스트를 재사용할 수 있도록 Tensor 파일로 저장합니다."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save(torch.tensor(token_ids, dtype=torch.long), path)
+
+
+def load_token_ids(path: str | Path) -> list[int]:
+    """save_token_ids()로 저장한 token ID 리스트를 읽습니다."""
+    cached = torch.load(Path(path), map_location="cpu")
+    if isinstance(cached, torch.Tensor):
+        return cached.long().tolist()
+    return list(cached)
+
+
+def get_or_create_token_ids(
+    corpus: str,
+    tokenizer,
+    cache_path: str | Path,
+    add_bos_eos: bool = False,
+    force_retokenize: bool = False,
+) -> list[int]:
+    """캐시가 있으면 token_ids를 읽고, 없으면 corpus를 encode한 뒤 저장합니다."""
+    cache_path = Path(cache_path)
+    if cache_path.exists() and not force_retokenize:
+        return load_token_ids(cache_path)
+
+    try:
+        token_ids = tokenizer.encode(corpus, add_bos_eos=add_bos_eos)
+    except TypeError:
+        token_ids = tokenizer.encode(corpus)
+        if add_bos_eos:
+            if hasattr(tokenizer, "get_bos_id"):
+                token_ids = [tokenizer.get_bos_id()] + token_ids
+            if hasattr(tokenizer, "get_eos_id"):
+                token_ids = token_ids + [tokenizer.get_eos_id()]
+
+    save_token_ids(token_ids, cache_path)
+    return token_ids
 
 
 def calc_loss_batch(
@@ -39,6 +82,7 @@ def calc_loss_loader(
         num_batches = min(num_batches, len(data_loader))
 
     total_loss = 0.0
+    was_training = model.training
     model.eval()
     with torch.no_grad():
         for batch_idx, (input_batch, target_batch) in enumerate(data_loader):
@@ -46,6 +90,9 @@ def calc_loss_loader(
                 break
             loss = calc_loss_batch(input_batch, target_batch, model, device)
             total_loss += loss.item()
+
+    if was_training:
+        model.train()
 
     return total_loss / num_batches
 
@@ -58,6 +105,8 @@ def save_checkpoint(
     path: str,
 ) -> None:
     """TODO: model/optimizer 상태, epoch, global_step을 torch.save로 저장합니다."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = {
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -96,6 +145,8 @@ def generate(
         idx_cond = idx[:, -context_size:]
         with torch.no_grad():
             logits = model(idx_cond)
+        if isinstance(logits, tuple):
+            logits = logits[1]
         logits = logits[:, -1, :]
 
         if top_k is not None:
@@ -131,6 +182,7 @@ def generate_and_print_sample(
     top_k: int | None = 40,
 ) -> None:
     """TODO: start_context를 encode하고 generate 후 decode하여 출력합니다."""
+    was_training = model.training
     model.eval()
     encoded = tokenizer.encode(start_context)
     idx = torch.tensor(encoded, dtype=torch.long, device=device).unsqueeze(0)
@@ -146,7 +198,8 @@ def generate_and_print_sample(
     )
     decoded = tokenizer.decode(token_ids.squeeze(0).tolist())
     print(decoded)
-    model.train()
+    if was_training:
+        model.train()
 
 
 def train_model(
@@ -187,7 +240,13 @@ def train_model(
                 train_loss = calc_loss_loader(train_loader, model, device, eval_iter)
                 val_loss = calc_loss_loader(val_loader, model, device, eval_iter)
                 print(f"step {global_step}: train loss {train_loss:.4f}, val loss {val_loss:.4f}")
-                generate_and_print_sample(model, tokenizer, device, start_context)
+                generate_and_print_sample(
+                    model,
+                    tokenizer,
+                    device,
+                    start_context,
+                    context_size=model.config.get("context_length", 256),
+                )
                 model.train()
 
             if ckpt_freq and global_step % ckpt_freq == 0:
