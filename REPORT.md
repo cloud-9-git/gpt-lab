@@ -287,7 +287,7 @@ A-E 시리즈는 초기 탐색 결과를 바탕으로, 한 번에 하나의 질�
 | D | 같은 최적화 설정에서 어느 모델 크기가 적절한가? | D6가 val loss 1위지만, D5 `192/4`가 현실적인 best였다. |
 | E | 최종 후보 모델에서 context length는 64/128/256 중 무엇이 좋은가? | `context-length=64`가 가장 안정적이었다. |
 
-![Pretraining decision trail](docs/pre-training/assets/pretraining_decision_trail.png)
+![Pretraining decision trail](docs/training/assets/pretraining_decision_trail.png)
 
 주의할 점은 C 시리즈는 8 epochs 장기 학습이고, D/E 시리즈는 빠른 비교를 위해 4 epochs로 진행했다는 것이다. 따라서 서로 다른 시리즈의 loss를 단순 순위로 비교하기보다, 각 시리즈가 어떤 선택을 정당화했는지 중심으로 해석했다.
 
@@ -312,7 +312,7 @@ A-E 시리즈는 초기 탐색 결과를 바탕으로, 한 번에 하나의 질�
 | A3 | 8 | 0.05 | 12648 | 4.5097 | 5.1477 | 약 5.1326 | 0.6380 |
 | A4 | 8 | 0.1 | 12648 | 4.6929 | 5.1590 | 약 5.1350 | 0.4661 |
 
-![A series](docs/pre-training/assets/a_series_epoch_dropout.png)
+![A series](docs/training/assets/a_series_epoch_dropout.png)
 
 A1은 기존 4 epochs 기준 validation loss `5.6948`보다 크게 개선된 `5.2662`를 기록했다. 좋은 신호를 합치는 방향은 유효했다.
 
@@ -337,7 +337,7 @@ A2는 8 epochs로 늘렸지만 final validation loss 개선은 작고 train-val 
 | B4 | 1e-3 | 6324 | 4.8937 | 5.2010 | 약 5.1947 | 0.3073 |
 | B5 | 1.5e-3 | 6324 | 4.9818 | 5.1793 | 약 5.1793 | 0.1975 |
 
-![B series](docs/pre-training/assets/b_series_learning_rate.png)
+![B series](docs/training/assets/b_series_learning_rate.png)
 
 learning rate를 `3e-4 -> 1.5e-3`로 키울수록 validation loss가 계속 낮아졌다. `1.5e-3`에서도 발산이나 loss 튐이 나타나지 않았으므로, C 시리즈에서는 이 값을 고정하고 dropout을 재검증했다.
 
@@ -358,7 +358,7 @@ learning rate를 `3e-4 -> 1.5e-3`로 키울수록 validation loss가 계속 낮�
 | C2 | 0.05 | 12648 | 4.6668 | 5.0798 | 약 5.0440 | 0.4130 |
 | C3 | 0.1 | 12648 | 4.8119 | 5.1151 | 약 5.0843 | 0.3032 |
 
-![C series](docs/pre-training/assets/c_series_dropout.png)
+![C series](docs/training/assets/c_series_dropout.png)
 
 C1은 dropout 없이도 B5보다 validation loss가 낮아져 `lr=1.5e-3`이 8 epochs에서도 유효함을 보여주었다. 하지만 gap이 `0.6104`로 컸다.
 
@@ -384,7 +384,7 @@ C2는 final validation loss `5.0798`, best validation loss 약 `5.0440`으로 C 
 | D5 | 192 | 4 | 6324 | 5.0585 | 5.2280 | 약 5.2232 | 0.1695 |
 | D6 | 256 | 4 | 6324 | 4.7450 | 5.2234 | 약 5.2204 | 0.4784 |
 
-![D series](docs/pre-training/assets/d_series_model_size.png)
+![D series](docs/training/assets/d_series_model_size.png)
 
 2-layer 조건에서는 embedding 차원을 키울수록 validation loss가 낮아졌다. 4-layer 조건에서도 D6 `256/4`가 순수 validation loss 1위였지만, D5 `192/4`와 final validation loss 차이는 약 `0.0046`에 불과했다.
 
@@ -408,7 +408,7 @@ C2는 final validation loss `5.0798`, best validation loss 약 `5.0440`으로 C 
 | E2 | 128 | 3160 | 4.8942 | 5.3675 | 약 5.3675 | 0.4733 |
 | E3 | 256 | 1580 | 4.8999 | 5.4494 | 약 5.4494 | 0.5495 |
 
-![E series](docs/pre-training/assets/e_series_context_length.png)
+![E series](docs/training/assets/e_series_context_length.png)
 
 E1은 D5와 거의 같은 조건의 재현 실험에 가깝고, validation loss도 `5.2254`로 안정적으로 나왔다. E2/E3는 train loss는 낮았지만 validation loss와 gap이 모두 악화되었다.
 
