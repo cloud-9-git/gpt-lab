@@ -2,14 +2,14 @@
 
 ## 1. 개요
 
-이 프로젝트는 PyTorch만 사용해 작은 GPT 계열 언어 모델을 직접 구현하는 학생용 템플릿입니다. 완성할 모델은 거대한 ChatGPT가 아니라, LLM의 핵심 component를 이해하기 위한 교육용 mini GPT입니다.
+이 프로젝트는 PyTorch를 중심으로 작은 GPT 계열 언어 모델의 핵심 구성 요소를 직접 구현한 교육용 팀 프로젝트입니다. 거대한 ChatGPT를 재현하기보다 LLM의 동작 원리를 이해하고 검증하는 mini GPT 구현을 목표로 했습니다.
 
-학생용 소스는 `TODO`와 `NotImplementedError`가 남아 있는 상태입니다. 처음 테스트를 실행하면 실패하는 것이 정상이며, 각 단계의 TODO를 구현하면서 해당 테스트 파일을 하나씩 통과시키면 됩니다.
+초기 학생용 템플릿에는 `TODO`와 `NotImplementedError`가 포함되어 있었습니다. 팀원별 branch와 Pull Request를 통해 단계별 구현을 완성했으며, 현재 구현은 관련 테스트를 통과합니다.
 
-참고 도서:
+참고 자료:
 
 - 『밑바닥부터 만들면서 배우는 LLM』
-- 교재 소스 코드: `https://github.com/rickiepark/llm-from-scratch`
+- 공개 참고 코드: [rickiepark/llm-from-scratch](https://github.com/rickiepark/llm-from-scratch) (Apache-2.0)
 
 ---
 
