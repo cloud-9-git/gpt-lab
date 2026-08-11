@@ -6,10 +6,10 @@
 
 초기 학생용 템플릿에는 `TODO`와 `NotImplementedError`가 포함되어 있었습니다. 팀원별 branch와 Pull Request를 통해 단계별 구현을 완성했으며, 현재 구현은 관련 테스트를 통과합니다.
 
-참고 도서:
+참고 자료:
 
 - 『밑바닥부터 만들면서 배우는 LLM』
-- 교재 소스 코드: `https://github.com/rickiepark/llm-from-scratch`
+- 공개 참고 코드: [rickiepark/llm-from-scratch](https://github.com/rickiepark/llm-from-scratch) (Apache-2.0)
 
 ---
 

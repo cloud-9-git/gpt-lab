@@ -22,5 +22,5 @@ Study and reference sources:
   The dataset is downloaded at runtime and is not bundled with this source
   distribution. The NSMC repository makes the dataset available under CC0 1.0.
 
-No textbook body text or recovered experiment archive is included in the
-current source tree.
+No third-party reference material or recovered experiment archive is included
+in the current source tree.
