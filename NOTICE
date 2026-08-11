@@ -1,0 +1,26 @@
+gpt-lab
+Copyright 2026 cloud-9-git/gpt-lab contributors
+
+Licensing note: the accompanying Apache License 2.0 text is proposed for this
+multi-contributor repository. Adoption and redistribution under that license
+require confirmation from the existing contributors; this notice does not
+record or replace that consent.
+
+This project was developed as a team educational implementation. Contributors
+whose work appears in the public Git history include 5giran, whiskend,
+SaeByeok22, and cloud-9-git.
+
+Study and reference sources:
+
+- "Build a Large Language Model (From Scratch)" by Sebastian Raschka and the
+  Korean companion code repository maintained by Hae-Sun Park:
+  https://github.com/rickiepark/llm-from-scratch
+  The referenced code repository is distributed under the Apache License 2.0.
+
+- NAVER Sentiment Movie Corpus (NSMC):
+  https://github.com/e9t/nsmc
+  The dataset is downloaded at runtime and is not bundled with this source
+  distribution. The NSMC repository makes the dataset available under CC0 1.0.
+
+No textbook body text or recovered experiment archive is included in the
+current source tree.
